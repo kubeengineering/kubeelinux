@@ -263,6 +263,241 @@ overview_terminal() {
 }
 
 # =====================================================================
+#  tabby — стеклянный терминал
+# =====================================================================
+#
+# У Tabby прозрачность устроена в два слоя, и это главное, что нужно
+# знать. Acrylic делает полупрозрачным САМО ОКНО, но область терминала
+# внутри рисует xterm отдельным слоем — она остаётся плотной. Поэтому
+# «стекло» получается только правкой Custom CSS.
+#
+# Отсюда же вывод, почему тут не подходит app --opacity: тот способ
+# гасит окно целиком, вместе с плашкой вкладок, и вид становится мутным.
+# Здесь мы крутим ровно одно число — плотность фона терминала.
+#
+# Настройки Tabby живут в ~/.config/tabby/config.yaml, Custom CSS — в
+# ключе appearance.css. Свой блок кладём с маркерами, чтобы не задеть
+# чужие правила и уметь снять только своё.
+
+TABBY_CONF="$HOME/.config/tabby/config.yaml"
+TABBY_MARK_BEGIN="/* dk:tabby-begin */"
+TABBY_MARK_END="/* dk:tabby-end */"
+
+# Убрать свой блок из файла.
+#
+# Через sed это делать нельзя: маркер — CSS-комментарий, а звёздочка в
+# нём для регулярного выражения означает «ноль или более предыдущего».
+# Из-за этого блок не находился, и повторный запуск добавлял второй.
+# awk с index() сравнивает подстроку буквально.
+tabby_strip_block() {
+    local file="$1"
+    local tmp
+    tmp=$(mktemp)
+    awk -v a="$TABBY_MARK_BEGIN" -v b="$TABBY_MARK_END" '
+        index($0, a) { skip = 1 }
+        !skip { print }
+        index($0, b) { skip = 0 }
+    ' "$file" > "$tmp"
+    mv "$tmp" "$file"
+}
+
+help_tabby() {
+    cat <<'EOF'
+tabby — стеклянный терминал Tabby
+
+  desktop-kit tabby                    показать нынешние значения
+  desktop-kit tabby --alpha 0.30       плотность фона терминала
+  desktop-kit tabby --ui 16161e        цвет плашки вкладок
+  desktop-kit tabby --bg 1a1b26        фон терминала
+  desktop-kit tabby --revert           снять только наш блок
+
+  Плотность: 0.10 — обои читаются насквозь, 0.30 — текст виден на любых
+  обоях (рабочее значение), 0.40 — почти глухой фон.
+
+  ЧТО НУЖНО ВКЛЮЧИТЬ В САМОМ TABBY, один раз:
+    Settings → Window → Acrylic background — включить
+    Settings → Window → Opacity — вправо до упора
+
+  Без Acrylic окно останется плотным, и CSS ничего не изменит: он
+  красит слой терминала, а не окно.
+
+  ВАЖНО: правь конфиг при закрытом Tabby. Он держит настройки в
+  памяти и при выходе перезаписывает файл — правки на живой программе
+  пропадут. Скрипт проверяет это сам и предупредит.
+
+  Почему не app --opacity: тот способ гасит окно целиком, вместе с
+  плашкой вкладок. Здесь прозрачным становится только фон терминала,
+  а плашка и боковая панель остаются плотными — так задумано.
+EOF
+}
+
+# Наш блок CSS с подставленными значениями
+tabby_css_block() {
+    local alpha="$1"
+    local ui="$2"
+    local bg_rgb="$3"
+    # Отступ у маркеров обязателен: CSS лежит внутри блочного скаляра
+    # YAML (css: |), и строка без отступа закрывает блок — конфиг Tabby
+    # после такой правки просто не читается. Проверено на живом файле.
+    cat <<EOF
+    $TABBY_MARK_BEGIN
+    :root {
+      --ui-bg: #$ui;
+      --term-bg: $bg_rgb;
+      --term-alpha: $alpha;
+    }
+    .tab-bar,
+    profile-tree {
+      background: var(--ui-bg) !important;
+    }
+    .xterm-viewport,
+    .xterm-screen,
+    .terminal,
+    terminal-tab {
+      background-color: rgba(var(--term-bg), var(--term-alpha)) !important;
+    }
+    tab-body .content {
+      margin: 0 !important;
+      border: 0 !important;
+    }
+    $TABBY_MARK_END
+EOF
+}
+
+# hex-цвет в «R, G, B» — CSS-переменная хранит компоненты через запятую
+tabby_hex_to_rgb() {
+    local hex="$1"
+    hex=$(printf '%s' "$hex" | tr -d '#')
+    printf '%d, %d, %d' \
+        "$((16#${hex:0:2}))" "$((16#${hex:2:2}))" "$((16#${hex:4:2}))"
+}
+
+tabby_show() {
+    head1 "стеклянный Tabby"
+    if [ ! -f "$TABBY_CONF" ]; then
+        bad "конфига Tabby нет: $TABBY_CONF"
+        note "запусти Tabby и закрой — он создаст файл сам"
+        return 1
+    fi
+    note "конфиг: $TABBY_CONF"
+    if grep -qF "$TABBY_MARK_BEGIN" "$TABBY_CONF"; then
+        ok "наш блок на месте"
+        local a
+        a=$(grep -o -- '--term-alpha: [0-9.]*' "$TABBY_CONF" | head -1 | awk '{print $2}')
+        note "плотность фона терминала: ${a:-не разобрал}"
+    else
+        note "нашего блока нет — поставить: $0 tabby --alpha 0.30"
+    fi
+    if grep -qE '^\s*vibrancy:\s*true' "$TABBY_CONF"; then
+        ok "Acrylic включён"
+    else
+        note "Acrylic выключен — включи: Settings → Window → Acrylic background"
+        note "без него окно останется плотным, сколько CSS ни правь"
+    fi
+    return 0
+}
+
+cmd_tabby() {
+    local alpha=""
+    local ui="16161e"
+    local bg="1a1b26"
+    local revert=0
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --alpha)   need_args "--alpha" 2 "$#"; alpha="${2:-}"; shift 2 ;;
+            --ui)      need_args "--ui" 2 "$#"; ui="${2:-}"; shift 2 ;;
+            --bg)      need_args "--bg" 2 "$#"; bg="${2:-}"; shift 2 ;;
+            --revert)  revert=1; shift ;;
+            -h|--help) help_tabby; return 0 ;;
+            -*) die "tabby: неизвестный параметр $1" ;;
+            *)  die "tabby: непонятно '$1' — см. $0 help tabby" ;;
+        esac
+    done
+
+    if [ "$alpha" = "" ] && [ "$revert" = "0" ]; then
+        tabby_show
+        return $?
+    fi
+
+    if [ ! -f "$TABBY_CONF" ]; then
+        bad "конфига Tabby нет: $TABBY_CONF"
+        note "запусти Tabby и закрой его — файл появится"
+        return 1
+    fi
+
+    # Tabby держит настройки в памяти и перезаписывает файл при выходе:
+    # правка на живой программе просто исчезнет.
+    if pgrep -x tabby >/dev/null 2>&1; then
+        bad "Tabby сейчас запущен — он перезапишет файл при выходе"
+        note "закрой его и повтори команду"
+        return 1
+    fi
+
+    if [ "$revert" = "1" ]; then
+        if ! grep -qF "$TABBY_MARK_BEGIN" "$TABBY_CONF"; then
+            note "нашего блока в конфиге нет — снимать нечего"
+            return 0
+        fi
+        if would "снять свой блок из Custom CSS"; then
+            return 0
+        fi
+        backup_once "$TABBY_CONF" "tabby-config.yaml"
+        tabby_strip_block "$TABBY_CONF"
+        ok "блок снят, остальные правила не тронуты"
+        return 0
+    fi
+
+    case "$alpha" in
+        0.[0-9]|0.[0-9][0-9]|1.0|1) : ;;
+        *) die "tabby: плотность — от 0.05 до 1.0, например 0.30" ;;
+    esac
+
+    head1 "стеклянный Tabby"
+    if would "поставить плотность фона терминала $alpha"; then
+        return 0
+    fi
+
+    backup_once "$TABBY_CONF" "tabby-config.yaml"
+
+    local rgb
+    rgb=$(tabby_hex_to_rgb "$bg")
+
+    # Custom CSS лежит в appearance.css как блочный скаляр. Если ключа
+    # нет, дописываем его целиком; если есть — меняем только свой блок.
+    if grep -qF "$TABBY_MARK_BEGIN" "$TABBY_CONF"; then
+        tabby_strip_block "$TABBY_CONF"
+    fi
+
+    if grep -qE '^\s*css:' "$TABBY_CONF"; then
+        # Вставляем свой блок сразу после строки с ключом css
+        local tmp
+        tmp=$(mktemp)
+        awk -v block="$(tabby_css_block "$alpha" "$ui" "$rgb")" '
+            /^[[:space:]]*css:/ && !done { print; print block; done = 1; next }
+            { print }
+        ' "$TABBY_CONF" > "$tmp"
+        mv "$tmp" "$TABBY_CONF"
+        ok "блок обновлён в appearance.css"
+    else
+        # Ключа css нет — добавляем секцию целиком в конец файла
+        {
+            printf '\nappearance:\n  css: |\n'
+            tabby_css_block "$alpha" "$ui" "$rgb"
+        } >> "$TABBY_CONF"
+        ok "добавлена секция appearance.css"
+    fi
+
+    ok "плотность фона терминала: $alpha"
+    note "плашка вкладок: #$ui, фон терминала: $rgb"
+    blank
+    note "если стекла не видно — включи Acrylic:"
+    note "  Settings → Window → Acrylic background, Opacity вправо до упора"
+    note "снять только наше: $0 tabby --revert"
+    return 0
+}
+
+# =====================================================================
 #  look — готовые образы рабочего стола
 # =====================================================================
 #
@@ -1262,6 +1497,9 @@ widget|flat|--radius 0|прямые углы подложки
 widget|round|--radius 12|скруглённая подложка
 widget|glass|--opacity 120|полупрозрачная подложка
 widget|solid|--opacity 255|сплошная подложка
+tabby|glass|--alpha 0.30|рабочее стекло: текст виден на любых обоях
+tabby|clear|--alpha 0.15|сильнее просвечивает
+tabby|solid|--alpha 0.60|почти глухой фон
 terminal|opaque|--opacity 0|без прозрачности
 terminal|glass|--opacity 15|слегка просвечивает
 terminal|clear|--opacity 30|заметно просвечивает
@@ -8386,7 +8624,7 @@ PY
 }
 
 SELFTEST_ONLY=""
-SELFTEST_GROUPS="core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile refresh tune report presets overview help"
+SELFTEST_GROUPS="core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile tabby refresh tune report presets overview help"
 
 selftest_full() {
     note "песочница с подставными gsettings, dconf, curl и systemd"
@@ -9539,6 +9777,56 @@ EOF
     sandbox_drop
 }
 
+st_tabby() {
+    t_group "tabby: стеклянный терминал"
+    sandbox_new
+
+    local conf="$SB/.config/tabby/config.yaml"
+    mkdir -p "$(dirname "$conf")"
+
+    sandbox_run tabby --alpha 0.30
+    t_rc_not "без конфига команда отказывает"
+    t_out_has "сказано, где его взять" "Tabby"
+
+    # Конфиг с чужим правилом внутри блочного скаляра YAML
+    printf 'version: 5
+appearance:
+  vibrancy: true
+  css: |
+    .terminal { font-variant-ligatures: none; }
+terminal:
+  fontSize: 13
+' > "$conf"
+
+    sandbox_run tabby --alpha 0.30
+    t_rc "блок поставлен" 0
+    t_has "маркер начала на месте" "$conf" "dk:tabby-begin"
+    t_has "плотность записана" "$conf" -- "--term-alpha: 0.30"
+    t_has "чужое правило уцелело" "$conf" "font-variant-ligatures"
+    t_has "чужой ключ уцелел" "$conf" "fontSize: 13"
+
+    # Маркеры обязаны иметь отступ: строка без него закрывает блочный
+    # скаляр YAML, и Tabby перестаёт читать свой конфиг.
+    t_hasnt "маркер не начинается с начала строки" "$conf" "^/\* dk:tabby-begin"
+
+    # Повторный запуск заменяет блок, а не добавляет второй. Раньше
+    # блок искался через sed, и звёздочка в CSS-комментарии ломала поиск.
+    sandbox_run tabby --alpha 0.15
+    local n
+    n=$(grep -c "dk:tabby-begin" "$conf")
+    t_eq "после повтора блок один" "1" "$n"
+    t_has "плотность обновилась" "$conf" -- "--term-alpha: 0.15"
+
+    sandbox_run tabby --revert
+    t_hasnt "блок снят" "$conf" "dk:tabby-begin"
+    t_has "чужое правило пережило откат" "$conf" "font-variant-ligatures"
+
+    sandbox_run tabby --alpha 5
+    t_rc_not "вздорная плотность отвергнута"
+
+    sandbox_drop
+}
+
 st_profile() {
     t_group "profile: снимки оформления"
     sandbox_new
@@ -9955,6 +10243,7 @@ desktop-kit $VERSION — настройка десктопа Ubuntu 24.04 / GNOM
   widget       виджет conky: скругление, цвет, плотность
                  $(presets_names widget)
   terminal     GNOME Terminal: прозрачность, шрифт, палитра
+  tabby        стеклянный Tabby: плотность фона терминала
                  $(presets_names terminal)
 
   Слово после команды — готовый набор параметров: buttons thin,
@@ -10096,6 +10385,7 @@ cmd_help() {
         app)        help_app ;;
         themes)     help_themes ;;
         profile)    help_profile ;;
+        tabby)      help_tabby ;;
         look)       help_look ;;
         refresh)    help_refresh ;;
         tune)       help_tune ;;
@@ -10171,6 +10461,7 @@ case "$COMMAND" in
     serve)      cmd_serve "$@" ;;
     themes)     cmd_themes "$@" ;;
     profile)    cmd_profile "$@" ;;
+    tabby)      cmd_tabby "$@" ;;
     look)       cmd_look "$@" ;;
     refresh)    cmd_refresh "$@" ;;
     tune)       cmd_tune "$@" ;;

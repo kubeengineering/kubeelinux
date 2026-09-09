@@ -89,6 +89,7 @@ wget https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/bootstrap
 | `font` | шрифт интерфейса и моноширинный |
 | `widget` | виджет conky: создание, скругление, цвет, погода |
 | `terminal` | GNOME Terminal: прозрачность, шрифт, палитра pywal |
+| `tabby` | стеклянный Tabby: плотность фона терминала |
 | `panel` | панель задач Dash to Panel: прозрачность, высота, плавающая |
 | `newtab` | страница новой вкладки Chrome и её ярлыки |
 | `wallpapers` / `wall` | банк обоев: пополнение, расписание, смена |
