@@ -31,9 +31,79 @@ mkdir -p "$KIT_DIR"
 say()  { printf '\033[38;5;108m  design\033[0m  %s\n' "$*"; }
 warn() { printf '\033[38;5;174m  design\033[0m  %s\n' "$*" >&2; }
 
+# Версия и дата из самого скрипта
+kit_version() {
+    [ -f "$KIT" ] || return 1
+    grep -m1 '^VERSION=' "$KIT" | cut -d'"' -f2
+}
+
+kit_version_date() {
+    [ -f "$KIT" ] || return 1
+    grep -m1 '^VERSION_DATE=' "$KIT" | cut -d'"' -f2
+}
+
+# Плашка обновления. Раньше здесь была одна строка «обновлено до 1.0»,
+# и по ней невозможно было понять, что вообще изменилось: номер версии
+# месяцами стоял на месте. Теперь видно, что было, что стало и что нового.
+update_banner() {
+    local was_v="$1"
+    local was_d="$2"
+    local now_v
+    local now_d
+    now_v=$(kit_version)
+    now_d=$(kit_version_date)
+
+    printf '\n\033[38;5;108m  ┌─ design обновлён ─────────────────────────────\033[0m\n'
+    if [ -n "$was_v" ]; then
+        printf '    было:   %s от %s\n' "$was_v" "${was_d:-даты не было}"
+    else
+        printf '    было:   скрипта не было вовсе\n'
+    fi
+    printf '    стало:  \033[1m%s от %s\033[0m\n' "${now_v:-?}" "${now_d:-?}"
+    printf '    скачан: %s\n' "$(date '+%d.%m.%Y %H:%M')"
+
+    # Что нового — три строки из CHANGELOG репозитория. Он маленький,
+    # тянуть его дешевле, чем заставлять человека лезть на гитхаб.
+    local news
+    news=$(curl -fsSL --max-time 20 "$REPO_RAW/CHANGELOG.md" 2>/dev/null \
+           | awk '/^- /{ print; n++ } n>=3 { exit }')
+    if [ -n "$news" ]; then
+        printf '\n    что нового:\n'
+        printf '%s\n' "$news" | sed 's/^- /      · /'
+    fi
+    printf '\033[38;5;108m  └───────────────────────────────────────────────\033[0m\n\n'
+}
+
+# Обновить саму запускалку. Без этого улучшения в ней самой доезжают
+# только через переустановку, а человек об этом не знает.
+update_self() {
+    local tmp
+    tmp=$(mktemp) || return 1
+    if ! curl -fsSL --max-time 30 "$REPO_RAW/tools/design" -o "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if [ ! -s "$tmp" ] || ! head -1 "$tmp" | grep -q '^#!/usr/bin/env bash' \
+       || ! bash -n "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if cmp -s "$tmp" "$0"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    cat "$tmp" > "$0" 2>/dev/null && say "запускалка обновлена тоже"
+    rm -f "$tmp"
+    return 0
+}
+
 # Скачать свежую версию и подменить рабочую, если она отличается и цела.
 update_kit() {
     local quiet="${1:-0}"
+    local was_v
+    local was_d
+    was_v=$(kit_version 2>/dev/null)
+    was_d=$(kit_version_date 2>/dev/null)
     local tmp
     tmp=$(mktemp) || return 1
 
@@ -77,9 +147,14 @@ update_kit() {
 
     mv "$tmp" "$KIT"
     chmod +x "$KIT"
-    local ver
-    ver=$(grep -m1 '^VERSION=' "$KIT" | cut -d'"' -f2)
-    say "обновлено до версии ${ver:-неизвестно}"
+    update_self
+    if [ "$quiet" = "0" ]; then
+        update_banner "$was_v" "$was_d"
+    else
+        # Тихое обновление по расписанию: одна строка, чтобы человек
+        # заметил смену версии, но не получил простыню при каждом запуске.
+        say "обновлено: ${was_v:-—} → $(kit_version) от $(kit_version_date)"
+    fi
     return 0
 }
 
@@ -115,7 +190,8 @@ case "${1:-}" in
             # Номер версии в скрипте меняется редко, а сам скрипт — часто.
             # Поэтому показываем ещё и дату файла: по ней сразу видно,
             # свежий он или лежит с прошлого месяца.
-            say "версия $(grep -m1 '^VERSION=' "$KIT" | cut -d'"' -f2), файл от $(date -r "$KIT" '+%d.%m.%Y %H:%M')"
+            say "версия $(kit_version) от $(kit_version_date)"
+            say "файл скачан: $(date -r "$KIT" '+%d.%m.%Y %H:%M')"
             say "файл: $KIT"
             # Показываем и давность проверки: иначе непонятно, почему
             # версия та же, что вчера — то ли гит не менялся, то ли
