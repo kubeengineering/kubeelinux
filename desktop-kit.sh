@@ -6276,6 +6276,7 @@ app — своя тема для одного приложения
   desktop-kit app codium --opacity 85          окно станет полупрозрачным
   desktop-kit app codium --opacity 85 --keep   и останется таким после перезапуска
   desktop-kit app codium --opacity 100         вернуть непрозрачность
+  desktop-kit app --windows                    какие окна есть и что на них стоит
 
   Приложению подставляется GTK_THEME через его же ярлык в
   ~/.local/share/applications. Правятся ВСЕ строки Exec, включая
@@ -6398,6 +6399,57 @@ opacity_remove_watch() {
     return 0
 }
 
+# Что сейчас с окнами: класс, заголовок, стоящая прозрачность.
+#
+# Нужна, когда «не сработало»: по одному выводу видно и настоящее имя
+# окна (у Electron оно бывает неожиданным), и лежит ли на нём свойство.
+# Без этого разбор превращается в переписку с вопросами.
+app_windows() {
+    head1 "окна и их прозрачность"
+
+    if ! have wmctrl || ! have xprop; then
+        bad "нужны wmctrl и xprop"
+        note "поставить: sudo apt install -y wmctrl x11-utils"
+        return 1
+    fi
+
+    local win cls val pct
+    blank
+    # Кириллица в заголовках весит два байта, и printf, считающий байты,
+    # разъезжается. Поэтому заголовок идёт последним — выравнивать
+    # после него уже нечего.
+    wmctrl -lx 2>/dev/null | while read -r win _ cls _ title; do
+        val=$(xprop -id "$win" _NET_WM_WINDOW_OPACITY 2>/dev/null               | awk -F' = ' '/CARDINAL/ { print $2 }')
+        if [ -z "$val" ]; then
+            pct="  —"
+        else
+            pct=$(LC_ALL=C awk -v v="$val" 'BEGIN{ printf "%3d%%", v * 100 / 4294967295 }')
+        fi
+        printf '    %s  %s  %s
+' "$pct" "$cls" "$(printf '%s' "$title" | cut -c1-30)"
+    done
+
+    blank
+    note "второе поле — то, что подставляется в команду"
+    note "прочерк значит, что прозрачность на окне не выставлена"
+    note "поставить: $0 app ИМЯ --opacity 85 --keep"
+
+    # Сторож живёт отдельно от свойства: свойство могло слететь вместе
+    # с окном, а сторож — не запуститься после перезахода.
+    blank
+    local w
+    w=$(pgrep -af dk-window-opacity 2>/dev/null | head -3)
+    if [ -n "$w" ]; then
+        ok "сторож работает:"
+        printf '%s
+' "$w" | sed 's/^/      /' | dump
+    else
+        note "сторож не запущен — прозрачность не переживёт перезапуск окна"
+        note "включить: $0 app ИМЯ --opacity 85 --keep, затем перезайти в сеанс"
+    fi
+    return 0
+}
+
 app_opacity() {
     local name="$1"
     local pct="$2"
@@ -6506,6 +6558,7 @@ cmd_app() {
         case "$1" in
             --theme) need_args "--theme" 2 "$#"; theme="${2:-}"; shift 2 ;;
             --opacity) need_args "--opacity" 2 "$#"; opacity="${2:-}"; shift 2 ;;
+            --windows) app_windows; return $? ;;
             --keep)    keep=1; shift ;;
             --reset)   reset=1; shift ;;
             -h|--help) help_app; return 0 ;;
