@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.2"
+VERSION="1.3"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6273,9 +6273,9 @@ app — своя тема для одного приложения
   desktop-kit app ИМЯ --theme ТЕМА
   desktop-kit app ИМЯ --reset
 
-  desktop-kit app codium --opacity 85          окно станет полупрозрачным
-  desktop-kit app codium --opacity 85 --keep   и останется таким после перезапуска
-  desktop-kit app codium --opacity 100         вернуть непрозрачность
+  desktop-kit app codium --opacity 95          окно просвечивает и остаётся таким
+  desktop-kit app codium --opacity 95 --once   только этим окнам, без сторожа
+  desktop-kit app codium --opacity 100         вернуть непрозрачность, снять сторожа
   desktop-kit app --windows                    какие окна есть и что на них стоит
 
   Приложению подставляется GTK_THEME через его же ярлык в
@@ -6294,12 +6294,16 @@ app — своя тема для одного приложения
   Имя — часть WM_CLASS, регистр не важен: codium, chrome, obsidian.
   Посмотреть класс: wmctrl -lx
 
-  Свойство живёт вместе с окном, поэтому после перезапуска редактора
-  прозрачность пропадает. Флаг --keep кладёт в автозапуск маленького
-  сторожа, который вешает её на новые окна сам.
+  Свойство живёт вместе с окном: закрыл редактор — прозрачность ушла.
+  Поэтому команда сразу поднимает маленького сторожа и кладёт его в
+  автозапуск — он вешает прозрачность на новые окна сам, раз в две
+  секунды. Нужен разовый эффект без сторожа — добавь --once.
+
+  Личные значения Владислава: VSCodium 95 (тема Quiet Light), Tabby
+  настраивается не здесь, а командой tabby — у него своя прозрачность.
 
   ТОЛЬКО X11. На Wayland свойств окон нет и доступа к чужим окнам тоже,
-  так что команда честно откажется. Проверить сеанс: echo $XDG_SESSION_TYPE
+  так что команда честно откажется.
 EOF
 }
 
@@ -6375,7 +6379,7 @@ while true; do
             xprop -id "$w" -f _NET_WM_WINDOW_OPACITY 32c                   -set _NET_WM_WINDOW_OPACITY "$HEX" 2>/dev/null
         fi
     done
-    sleep 5
+    sleep 2
 done
 WEOF
     chmod +x "$OPACITY_WATCH"
@@ -6389,6 +6393,18 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Delay=10
 AEOF
+
+    # Одного автозапуска мало: он сработает только со следующего входа
+    # в сеанс. До тех пор прозрачность живёт вместе с окном и пропадает
+    # при первом же перезапуске редактора — ровно так оно и ломалось,
+    # хотя команда рапортовала об успехе. Поднимаем сторожа сейчас.
+    pkill -f "$OPACITY_WATCH $name" 2>/dev/null
+    if have setsid; then
+        setsid "$OPACITY_WATCH" "$name" "$hex" >/dev/null 2>&1 </dev/null &
+    else
+        nohup "$OPACITY_WATCH" "$name" "$hex" >/dev/null 2>&1 </dev/null &
+    fi
+    disown 2>/dev/null || true
     return 0
 }
 
@@ -6432,11 +6448,25 @@ app_windows() {
     blank
     note "второе поле — то, что подставляется в команду"
     note "прочерк значит, что прозрачность на окне не выставлена"
-    note "поставить: $0 app ИМЯ --opacity 85 --keep"
+    note "поставить: $0 app ИМЯ --opacity 95"
 
-    # Сторож живёт отдельно от свойства: свойство могло слететь вместе
-    # с окном, а сторож — не запуститься после перезахода.
+    # Что настроено — отдельно от того, что видно. Приложение может быть
+    # просто закрыто: тогда окна в списке нет, и это не поломка.
     blank
+    local f nm seen
+    for f in "$HOME"/.config/autostart/dk-opacity-*.desktop; do
+        [ -f "$f" ] || continue
+        nm=$(basename "$f" .desktop); nm="${nm#dk-opacity-}"
+        seen=$(opacity_windows_of "$nm" | head -1)
+        if [ -n "$seen" ]; then
+            ok "настроено: $nm — окно открыто"
+        else
+            note "настроено: $nm — но окно сейчас не открыто, показывать нечего"
+        fi
+    done
+
+    # Сторож живёт отдельно от свойства: свойство слетает вместе с окном,
+    # а сторож вешает его обратно. Нет сторожа — прозрачность разовая.
     local w
     w=$(pgrep -af dk-window-opacity 2>/dev/null | head -3)
     if [ -n "$w" ]; then
@@ -6445,7 +6475,7 @@ app_windows() {
 ' "$w" | sed 's/^/      /' | dump
     else
         note "сторож не запущен — прозрачность не переживёт перезапуск окна"
-        note "включить: $0 app ИМЯ --opacity 85 --keep, затем перезайти в сеанс"
+        note "поднять: $0 app ИМЯ --opacity 95 (сторож стартует сразу)"
     fi
     return 0
 }
@@ -6540,10 +6570,12 @@ app_opacity() {
     if [ "$keep" = "1" ]; then
         opacity_install_watch "$name" "$hex"
         remember "OPACITY_$name" "$pct"
-        ok "сторож в автозапуске: прозрачность вернётся после перезапуска"
-        note "убрать: $0 app $name --opacity 100"
+        ok "сторож запущен и прописан в автозапуск"
+        note "прозрачность вернётся сама после перезапуска $name"
+        note "убрать совсем: $0 app $name --opacity 100"
     else
-        note "держится, пока живёт окно — закрепить: добавь --keep"
+        note "поставлено только текущим окнам (--once)"
+        note "перезапустишь $name — прозрачность пропадёт"
     fi
     return 0
 }
@@ -6553,13 +6585,17 @@ cmd_app() {
     theme=""
     local reset=0
     local opacity=""
-    local keep=0
+    # Удержание — поведение по умолчанию. Раньше без --keep прозрачность
+    # держалась до перезапуска приложения, и человек справедливо считал,
+    # что команда «перестала работать»: он-то её уже применил.
+    local keep=1
     while [ $# -gt 0 ]; do
         case "$1" in
             --theme) need_args "--theme" 2 "$#"; theme="${2:-}"; shift 2 ;;
             --opacity) need_args "--opacity" 2 "$#"; opacity="${2:-}"; shift 2 ;;
             --windows) app_windows; return $? ;;
             --keep)    keep=1; shift ;;
+            --once)    keep=0; shift ;;
             --reset)   reset=1; shift ;;
             -h|--help) help_app; return 0 ;;
             -*) die "app: неизвестный параметр $1" ;;

@@ -68,7 +68,7 @@ Dash to Panel: панель на трёх мониторах, размер 51, �
 
 | Программа | Тема | Прозрачность |
 |---|---|---|
-| VSCodium | `Quiet Light` (светлая) | 95 % — `design app codium --opacity 95 --keep` |
+| VSCodium | `Quiet Light` (светлая) | 95 % — `design app codium --opacity 95` |
 | Tabby | `Broadcast` (тёмная) | `--term-alpha: 0.30` в Custom CSS |
 | GNOME Terminal | палитра pywal | 15 % |
 
