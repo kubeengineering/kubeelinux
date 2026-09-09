@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.1"
+VERSION="1.2"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6432,8 +6432,51 @@ app_opacity() {
     n=$(opacity_apply_now "$name" "$hex")
     if [ "$n" = "0" ]; then
         note "открытых окон '$name' сейчас нет — применится к новым"
+        # Чаще всего дело не в отсутствии окна, а в имени: у Electron
+        # WM_CLASS бывает не тем, что ждёшь. Показываем, что есть.
+        local classes
+        classes=$(wmctrl -lx 2>/dev/null | awk '{print $3}' | sort -u | head -8)
+        if [ -n "$classes" ]; then
+            note "открытые окна сейчас (третье поле — это имя для команды):"
+            printf '%s
+' "$classes" | sed 's/^/      /' | dump
+        fi
     else
         ok "окон обработано: $n (непрозрачность ${pct}%)"
+
+        # Проверяем не «команда отработала», а результат: свойство
+        # могло не примениться, если композитор его не поддерживает.
+        # Без этой проверки скрипт бодро рапортовал об успехе, а окно
+        # оставалось прежним — и человек искал причину сам.
+        local win
+        win=$(opacity_windows_of "$name" | head -1)
+        local got
+        got=$(xprop -id "$win" _NET_WM_WINDOW_OPACITY 2>/dev/null)
+        case "$got" in
+            *"not found"*|"")
+                blank
+                bad "свойство не закрепилось за окном"
+                note "так бывает, когда окном управляет не композитор GNOME"
+                note "проверь сеанс: echo \$XDG_SESSION_TYPE — должно быть x11"
+                return 1
+                ;;
+        esac
+
+        # Свойство есть, но видимого эффекта не будет, если композитор
+        # его игнорирует. Единственный надёжный признак — сравнить
+        # запрошенное и записанное.
+        # strtonum есть только в gawk, а в Ubuntu по умолчанию mawk —
+        # там это «function never defined» прямо в выводе команды.
+        # Bash переводит шестнадцатеричное сам, без внешних программ.
+        local want_dec
+        want_dec=$(printf '%d' "$hex" 2>/dev/null)
+        case "$got" in
+            *"$want_dec"*) : ;;
+            *)
+                note "записано другое значение — окно могло перехватить свойство"
+                note "проверить руками: xprop -id $win _NET_WM_WINDOW_OPACITY"
+                ;;
+        esac
     fi
 
     if [ "$pct" = "100" ]; then
