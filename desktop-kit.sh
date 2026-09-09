@@ -6031,6 +6031,10 @@ app — своя тема для одного приложения
   desktop-kit app ИМЯ --theme ТЕМА
   desktop-kit app ИМЯ --reset
 
+  desktop-kit app codium --opacity 85          окно станет полупрозрачным
+  desktop-kit app codium --opacity 85 --keep   и останется таким после перезапуска
+  desktop-kit app codium --opacity 100         вернуть непрозрачность
+
   Приложению подставляется GTK_THEME через его же ярлык в
   ~/.local/share/applications. Правятся ВСЕ строки Exec, включая
   пункты контекстного меню дока — иначе "Написать письмо" откроется
@@ -6038,16 +6042,186 @@ app — своя тема для одного приложения
 
   Работает только для GTK-приложений. Kate и прочие Qt настраиваются
   через qt6ct или Kvantum.
+
+  ПРОЗРАЧНОСТЬ ОКНА (--opacity) устроена иначе и работает с любым
+  приложением, включая Electron: VSCodium, Code, Obsidian. Значение
+  пишется в свойство окна _NET_WM_WINDOW_OPACITY, которое читает
+  композитор; 100 — непрозрачно, 85 — заметно просвечивает.
+
+  Имя — часть WM_CLASS, регистр не важен: codium, chrome, obsidian.
+  Посмотреть класс: wmctrl -lx
+
+  Свойство живёт вместе с окном, поэтому после перезапуска редактора
+  прозрачность пропадает. Флаг --keep кладёт в автозапуск маленького
+  сторожа, который вешает её на новые окна сам.
+
+  ТОЛЬКО X11. На Wayland свойств окон нет и доступа к чужим окнам тоже,
+  так что команда честно откажется. Проверить сеанс: echo $XDG_SESSION_TYPE
 EOF
+}
+
+# Прозрачность окна приложения.
+#
+# У Electron-редакторов (VSCodium, Code) своей настройки прозрачности
+# нет — Tabby свою написал сам, здесь такого нет. Зато на X11 есть
+# способ снаружи: свойство окна _NET_WM_WINDOW_OPACITY, которое читает
+# композитор. Mutter его уважает, проверено на живом сеансе.
+#
+# Свойство живёт вместе с окном: закрыл редактор — прозрачность ушла.
+# Поэтому кроме разовой установки умеем прописывать сторожа в автозапуск.
+#
+# На Wayland это не работает в принципе: там нет свойств окон X11, а
+# доступ к чужим окнам закрыт. Говорим об этом прямо, а не молчим.
+
+OPACITY_WATCH="$BIN_DIR/dk-window-opacity"
+
+# 0..100 в проценты непрозрачности → 32-битное значение свойства
+opacity_to_hex() {
+    local pct="$1"
+    LC_ALL=C awk -v p="$pct" 'BEGIN{ printf "0x%08x", int(p * 4294967295 / 100) }'
+}
+
+# Найти окна приложения по классу. wmctrl -lx даёт WM_CLASS в третьем поле.
+opacity_windows_of() {
+    local name="$1"
+    wmctrl -lx 2>/dev/null \
+        | awk -v n="$name" 'tolower($3) ~ tolower(n) { print $1 }'
+}
+
+opacity_apply_now() {
+    local name="$1"
+    local hex="$2"
+    local win
+    local n=0
+    for win in $(opacity_windows_of "$name"); do
+        if xprop -id "$win" -f _NET_WM_WINDOW_OPACITY 32c \
+                 -set _NET_WM_WINDOW_OPACITY "$hex" 2>/dev/null; then
+            n=$((n + 1))
+        fi
+    done
+    printf '%s' "$n"
+}
+
+# Сторож: ждёт появления окна и вешает свойство. Нужен потому, что
+# приложение может стартовать позже автозапуска, а свойство ставится
+# только на существующее окно.
+opacity_install_watch() {
+    local name="$1"
+    local hex="$2"
+
+    mkdir -p "$BIN_DIR" "$HOME/.config/autostart"
+    cat > "$OPACITY_WATCH" <<'WEOF'
+#!/usr/bin/env bash
+# Ставит прозрачность окнам приложения, как только они появляются.
+# Аргументы: <часть WM_CLASS> <значение 0x........>
+# Написан desktop-kit, правится командой: desktop-kit app ИМЯ --opacity N
+NAME="${1:?нужен класс окна}"
+HEX="${2:?нужно значение прозрачности}"
+
+# На Wayland свойств окон X11 нет — выходим молча, чтобы не сорить в лог
+[ "${XDG_SESSION_TYPE:-}" = "wayland" ] && exit 0
+
+# Помнить обработанные окна нельзя: X переиспользует идентификаторы, и
+# новое окно с прежним id считалось бы уже обработанным — именно на этом
+# сторож молчал после перезапуска редактора. Смотрим на сам факт:
+# свойства нет — ставим. Поменял человек прозрачность руками — свойство
+# есть, и мы не вмешиваемся.
+while true; do
+    for w in $(wmctrl -lx 2>/dev/null | awk -v n="$NAME" 'tolower($3) ~ tolower(n) { print $1 }'); do
+        if xprop -id "$w" _NET_WM_WINDOW_OPACITY 2>/dev/null | grep -q "not found"; then
+            xprop -id "$w" -f _NET_WM_WINDOW_OPACITY 32c                   -set _NET_WM_WINDOW_OPACITY "$HEX" 2>/dev/null
+        fi
+    done
+    sleep 5
+done
+WEOF
+    chmod +x "$OPACITY_WATCH"
+
+    cat > "$HOME/.config/autostart/dk-opacity-$name.desktop" <<AEOF
+[Desktop Entry]
+Type=Application
+Name=Прозрачность окна: $name
+Exec=$OPACITY_WATCH $name $hex
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10
+AEOF
+    return 0
+}
+
+opacity_remove_watch() {
+    local name="$1"
+    rm -f "$HOME/.config/autostart/dk-opacity-$name.desktop"
+    pkill -f "$OPACITY_WATCH $name" 2>/dev/null
+    return 0
+}
+
+app_opacity() {
+    local name="$1"
+    local pct="$2"
+    local keep="$3"
+
+    if ! is_number "$pct"; then
+        die "app: прозрачность — целое число 0..100, где 100 — непрозрачно"
+    fi
+    if [ "$pct" -lt 10 ] || [ "$pct" -gt 100 ]; then
+        die "app: прозрачность от 10 до 100 (ниже 10 окно не разглядеть)"
+    fi
+
+    head1 "прозрачность окна: $name"
+
+    if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+        bad "сеанс Wayland — прозрачности чужих окон здесь нет"
+        note "это ограничение самого Wayland, а не редактора"
+        note "войти в сеанс Xorg: на экране входа шестерёнка → Ubuntu on Xorg"
+        return 1
+    fi
+
+    require_tools xprop wmctrl
+
+    local hex
+    hex=$(opacity_to_hex "$pct")
+
+    if would "поставить окнам '$name' непрозрачность ${pct}%"; then
+        return 0
+    fi
+
+    local n
+    n=$(opacity_apply_now "$name" "$hex")
+    if [ "$n" = "0" ]; then
+        note "открытых окон '$name' сейчас нет — применится к новым"
+    else
+        ok "окон обработано: $n (непрозрачность ${pct}%)"
+    fi
+
+    if [ "$pct" = "100" ]; then
+        opacity_remove_watch "$name"
+        ok "прозрачность снята, сторож убран"
+        return 0
+    fi
+
+    if [ "$keep" = "1" ]; then
+        opacity_install_watch "$name" "$hex"
+        remember "OPACITY_$name" "$pct"
+        ok "сторож в автозапуске: прозрачность вернётся после перезапуска"
+        note "убрать: $0 app $name --opacity 100"
+    else
+        note "держится, пока живёт окно — закрепить: добавь --keep"
+    fi
+    return 0
 }
 
 cmd_app() {
     local app=""
     theme=""
     local reset=0
+    local opacity=""
+    local keep=0
     while [ $# -gt 0 ]; do
         case "$1" in
             --theme) need_args "--theme" 2 "$#"; theme="${2:-}"; shift 2 ;;
+            --opacity) need_args "--opacity" 2 "$#"; opacity="${2:-}"; shift 2 ;;
+            --keep)    keep=1; shift ;;
             --reset)   reset=1; shift ;;
             -h|--help) help_app; return 0 ;;
             -*) die "app: неизвестный параметр $1" ;;
@@ -6057,6 +6231,13 @@ cmd_app() {
 
     if [ -z "$app" ]; then
         die "app: назови приложение, например evolution"
+    fi
+
+    # Прозрачность идёт своим путём: она вешается на окно, а не на
+    # ярлык, поэтому существование .desktop тут ни при чём.
+    if [ -n "$opacity" ]; then
+        app_opacity "$app" "$opacity" "$keep"
+        return $?
     fi
 
     src=""
@@ -8852,7 +9033,9 @@ st_widget() {
     rm -f "$conf"
     sandbox_run widget round
     t_rc_not "без конфига conky команда отказывает"
-    t_out_has "путь к конфигу назван" "conky"
+    # Раньше в отказе печатался путь к конфигу. Теперь там подсказка
+    # действия — команда, которая этот конфиг создаст; это полезнее.
+    t_out_has "подсказано, как создать виджет" "widget --init"
 
 
     # Создание с нуля: раньше конфиг умел делать только bootstrap,
@@ -9140,6 +9323,20 @@ st_app() {
     sandbox_run app chuzhoe --reset
     t_file "чужой ярлык не удалён" "$SB/.local/share/applications/chuzhoe.desktop"
     t_rc_not "удаление чужого ярлыка отвергнуто"
+
+
+    # --- прозрачность окна ---------------------------------------
+    # Значение свойства считается из процентов: 100 % — непрозрачно.
+    t_eq "100% даёт непрозрачное значение" "0xffffffff" "$(opacity_to_hex 100)"
+    t_eq "50% даёт половину" "0x7fffffff" "$(opacity_to_hex 50)"
+    t_eq "82% считается верно" "0xd1eb851d" "$(opacity_to_hex 82)"
+
+    sandbox_run app codium --opacity 5
+    t_rc_not "слишком низкая прозрачность отвергнута"
+    sandbox_run app codium --opacity 120
+    t_rc_not "прозрачность больше 100 отвергнута"
+    sandbox_run app codium --opacity почти
+    t_rc_not "нечисловая прозрачность отвергнута"
 
     sandbox_drop
 }

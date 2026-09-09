@@ -118,6 +118,23 @@ else
     wr "PPA не подключился — значки будут из архива Ubuntu (см. $LOG)"
 fi
 
+# VSCodium — редактор вместо Kate. Kate не держит рабочие файлы: на yaml
+# в 700 тысяч строк перестаёт отвечать, плюс отдельно ловится сбой буфера
+# обмена в X11. VSCodium с тем же файлом ищет и скроллит кратно быстрее.
+# В репозиториях Ubuntu его нет — только свой apt-репозиторий проекта.
+c "Репозиторий VSCodium"
+if [ -f /usr/share/keyrings/vscodium-archive-keyring.gpg ]; then
+    ok "уже подключён"
+else
+    if wget -qO- https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg          | gpg --dearmor          | sudo dd of=/usr/share/keyrings/vscodium-archive-keyring.gpg status=none 2>>"$LOG"; then
+        echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main'             | sudo tee /etc/apt/sources.list.d/vscodium.list >/dev/null
+        $APT update >>"$LOG" 2>&1
+        ok "подключён"
+    else
+        wr "ключ VSCodium не скачался — редактор пропущу (см. $LOG)"
+    fi
+fi
+
 # Список поредел с прошлой версии: rofi, gpick и их меню отсюда убраны.
 # Оба X11-нативные, а свежая Ubuntu входит в Wayland, где rofi теряет
 # клавиатуру, а пипетка не работает вовсе. Меню питания и Wi-Fi в GNOME
@@ -131,7 +148,12 @@ PKGS=(
     xdg-desktop-portal-gtk lm-sensors gir1.2-gtop-2.0 gnome-calendar
     fonts-jetbrains-mono
     copyq gnome-sushi fzf zoxide
+    x11-utils wmctrl
 )
+
+# codium ставим отдельно: если репозиторий не подключился, общая установка
+# не должна падать целиком из-за одного пакета.
+PKGS_EXTRA=(codium)
 wait_for_apt || exit 1
 if $APT install -y "${PKGS[@]}" >>"$LOG" 2>&1; then
     ok "установлены все ${#PKGS[@]}"
@@ -140,6 +162,14 @@ else
     for p in "${PKGS[@]}"; do
         $APT install -y "$p" >>"$LOG" 2>&1 || no "пакет $p"
     done
+fi
+
+if [ -f /usr/share/keyrings/vscodium-archive-keyring.gpg ]; then
+    if $APT install -y "${PKGS_EXTRA[@]}" >>"$LOG" 2>&1; then
+        ok "редактор: codium $(codium --version 2>/dev/null | head -1)"
+    else
+        wr "codium не встал (см. $LOG)"
+    fi
 fi
 
 # Без этого ядра дальше бессмысленно: конфиги лягут поверх пустоты.
