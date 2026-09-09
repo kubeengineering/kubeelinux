@@ -3,7 +3,7 @@
 `bootstrap.sh` нужен один раз — на свежепоставленной системе, где ещё нет ни пакетов, ни расширений, ни шрифтов. Дальше всё делает `design`.
 
 ```bash
-wget https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main/bootstrap.sh
+wget https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/bootstrap.sh
 ```
 
 ```bash

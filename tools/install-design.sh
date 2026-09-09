@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Установка запускалки `design` — одной командой, на свежей системе тоже.
 #
-#   curl -fsSL https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main/tools/install-design.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/tools/install-design.sh | bash
 #
 # Кладёт запускалку в ~/.local/bin и следит за тем, чтобы её было видно
 # по имени. Тонкость, из-за которой простой однострочник не годится:
@@ -12,7 +12,7 @@
 
 set -uo pipefail
 
-RAW="https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main"
+RAW="https://raw.githubusercontent.com/kubeengineering/kubeelinux/main"
 BIN="$HOME/.local/bin"
 
 say()  { printf '\033[38;5;108m  ставлю\033[0m  %s\n' "$*"; }

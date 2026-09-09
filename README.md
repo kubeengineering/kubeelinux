@@ -5,7 +5,7 @@
 ![Рабочий стол](docs/screenshots/look-work.png)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main/tools/install-design.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/tools/install-design.sh | bash
 ```
 
 ```bash
@@ -64,7 +64,7 @@ design look work            # применить
 На только что установленной Ubuntu нет ни `sassc`, ни conky, ни расширений GNOME — настраивать нечего. Для этого случая есть `bootstrap.sh`: он приносит пакеты, шрифт JetBrainsMono Nerd, расширения и палитру pywal, а внешний вид передаёт `desktop-kit`, чтобы у оформления была одна точка правды.
 
 ```bash
-wget https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main/bootstrap.sh && bash bootstrap.sh
+wget https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/bootstrap.sh && bash bootstrap.sh
 ```
 
 Пароль спросят один раз, в начале. Дальше вопросов не будет, а в конце скрипт скажет, что осталось сделать руками.

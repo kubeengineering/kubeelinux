@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ubuntu-desktop-kit — раскатка на свежей Ubuntu 24.04 с GNOME 46.
+# kubeelinux — раскатка на свежей Ubuntu 24.04 с GNOME 46.
 #
 # Ставит то, чего в системе нет: пакеты, шрифт, расширения GNOME,
 # палитру pywal. Внешний вид не настраивает сам — это делает
@@ -23,7 +23,7 @@ CITY="${CITY:-Moscow}"
 BIN="$HOME/bin"
 HERE=$(cd "$(dirname "$0")" && pwd)
 KIT="$HERE/desktop-kit.sh"
-RAW="https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main"
+RAW="https://raw.githubusercontent.com/kubeengineering/kubeelinux/main"
 
 LOOK="work"
 WANT_LOOK=1
@@ -315,10 +315,13 @@ grep -q "default_linemode devicons" "$HOME/.config/ranger/rc.conf" 2>/dev/null |
 
 # ─────────────────────────────────────────────── алиасы
 c "Алиасы и функции"
-if ! grep -q "# --- ubuntu-desktop-kit ---" "$HOME/.bashrc" 2>/dev/null; then
+# Проверяем ОБА маркера. Блок помечался старым именем проекта, и на
+# машине, где он уже стоит, поиск только нового маркера не нашёл бы
+# ничего — скрипт дописал бы второй такой же блок.
+if ! grep -qE "# --- (kubeelinux|ubuntu-desktop-kit) ---" "$HOME/.bashrc" 2>/dev/null; then
     cat >> "$HOME/.bashrc" <<'EOF'
 
-# --- ubuntu-desktop-kit ---
+# --- kubeelinux ---
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 command -v lsd >/dev/null && alias ls='lsd' && alias ll='lsd -l' && alias la='lsd -la' && alias lt='lsd --tree'
 command -v batcat >/dev/null && alias c='batcat'
