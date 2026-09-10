@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.4"
+VERSION="1.5"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -539,6 +539,8 @@ codium — редактор VSCodium
   desktop-kit codium --revert     снять наш блок и вернуть прежнюю привязку
 
   Что делает --txt:
+    · снимает рамки вокруг русских слов — редактор обводит символы вне
+      базового ASCII, а в Restricted Mode делает это принудительно
     · *.txt всегда открывается как plaintext, без угадывания языка
     · для plaintext гасятся подсветка одинаковых слов, семантическая
       подсветка, цветные скобки и линейки отступов
@@ -562,6 +564,19 @@ codium_block() {
     fi
     cat <<EOF
     $CODIUM_MARK_BEGIN
+    // Русские слова больше не обводятся рамками. Редактор ищет символы,
+    // которых можно не заметить или спутать с латиницей, и обводит их —
+    // для кода это защита от подделок, для русского текста беда: рамка
+    // встаёт вокруг каждого слова. В Restricted Mode проверка включена
+    // принудительно, поэтому гасим её ключами, а не доверием к папке.
+    "editor.unicodeHighlight.nonBasicASCII": false,
+    "editor.unicodeHighlight.ambiguousCharacters": false,
+    "editor.unicodeHighlight.invisibleCharacters": false,
+    "editor.unicodeHighlight.allowedLocales": {
+        "_os": true,
+        "_vscode": true,
+        "ru": true
+    },
     // Текст читается как текст: без угадывания языка и без серых
     // блоков на каждом повторе слова под курсором.
     "files.associations": {
@@ -759,7 +774,8 @@ cmd_codium() {
     local dup
     dup=$(awk -v a="$CODIUM_MARK_BEGIN" -v b="$CODIUM_MARK_END" '
         index($0, a) { skip = 1 }
-        !skip && (index($0, "\"files.associations\"") || index($0, "\"[plaintext]\"")) { print }
+        !skip && (index($0, "\"files.associations\"") || index($0, "\"[plaintext]\"") \
+                  || index($0, "\"editor.unicodeHighlight")) { print }
         index($0, b) { skip = 0 }
     ' "$CODIUM_SETTINGS")
     if [ -n "$dup" ]; then
@@ -10294,6 +10310,10 @@ st_codium() {
     t_file "файл настроек появился" "$st"
     t_has "язык привязан к txt" "$st" '"*.txt": "plaintext"'
     t_has "подсветка повторов погашена" "$st" "occurrencesHighlight"
+    # Главная причина рамок вокруг русских слов: в Restricted Mode эта
+    # проверка включена принудительно, поэтому ключ обязателен.
+    t_has "рамки вокруг не-ASCII сняты" "$st" '"editor.unicodeHighlight.nonBasicASCII": false'
+    t_has "кириллица объявлена своей" "$st" '"ru": true'
 
     local o c
     o=$(tr -cd '{' < "$st" | wc -c)
