@@ -35,11 +35,11 @@
 
 set -uo pipefail
 
-VERSION="1.3"
+VERSION="1.4"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
-VERSION_DATE="09.09.2026"
+VERSION_DATE="10.09.2026"
 SELF=$(readlink -f "$0")
 
 # --------------------------------------------------------------- пути
@@ -498,6 +498,304 @@ cmd_tabby() {
     note "если стекла не видно — включи Acrylic:"
     note "  Settings → Window → Acrylic background, Opacity вправо до упора"
     note "снять только наше: $0 tabby --revert"
+    return 0
+}
+
+# =====================================================================
+#  codium — редактор VSCodium
+# =====================================================================
+#
+# Редактор ставится в раскатке, а настраивался руками после каждой
+# переустановки. Здесь ровно две вещи, которые приходилось повторять.
+#
+# ПОДСВЕТКА .txt. Простыни распознанного текста и логи стендов редактор
+# норовит раскрасить: сам угадывает язык, а поверх заливает серыми
+# блоками все вхождения слова под курсором. Читать такое неудобно.
+# Лечится парой ключей, привязанных к языку plaintext.
+#
+# ЧЕМ ОТКРЫВАТЬ .txt. Ярлык в системе есть, а привязки типа файла нет:
+# двойной клик в файловом менеджере открывает не редактор. Ставится
+# через xdg-mime — это запись в ~/.config/mimeapps.list, не системная.
+#
+# Файл настроек личный, поэтому правим его как gtk.css — своим блоком
+# с маркерами. settings.json у VS Code и VSCodium это JSONC, комментарии
+# в нём разрешены, так что маркеры законны и редактор их не сотрёт.
+#
+# Блок кладём сразу после открывающей скобки и чужих строк не трогаем
+# вообще. Плата за безопасность: при одинаковых ключах в JSON побеждает
+# последний, то есть ручная настройка человека, а не наша. Поэтому
+# команда проверяет, нет ли ниже таких же ключей, и честно предупреждает.
+
+CODIUM_SETTINGS="$HOME/.config/VSCodium/User/settings.json"
+CODIUM_MARK_BEGIN="// dk:codium-begin"
+CODIUM_MARK_END="// dk:codium-end"
+
+help_codium() {
+    cat <<'EOF'
+codium — редактор VSCodium
+
+  desktop-kit codium              что сейчас настроено
+  desktop-kit codium --txt        .txt как простой текст + открывать в нём
+  desktop-kit codium --revert     снять наш блок и вернуть прежнюю привязку
+
+  Что делает --txt:
+    · *.txt всегда открывается как plaintext, без угадывания языка
+    · для plaintext гасятся подсветка одинаковых слов, семантическая
+      подсветка, цветные скобки и линейки отступов
+    · VSCodium становится приложением по умолчанию для text/plain
+
+  Чужие строки в settings.json не трогаются: наш блок кладётся отдельно
+  и снимается целиком. Перед правкой делается резервная копия.
+
+  Прозрачность окна редактора — отдельная команда:
+    desktop-kit app codium --opacity 95
+EOF
+}
+
+# Наш блок настроек. Запятая на конце нужна, только если ниже есть
+# другие ключи, иначе JSON станет невалидным.
+codium_block() {
+    local comma="$1"
+    local tail="}"
+    if [ "$comma" = "1" ]; then
+        tail="},"
+    fi
+    cat <<EOF
+    $CODIUM_MARK_BEGIN
+    // Текст читается как текст: без угадывания языка и без серых
+    // блоков на каждом повторе слова под курсором.
+    "files.associations": {
+        "*.txt": "plaintext"
+    },
+    "[plaintext]": {
+        "editor.occurrencesHighlight": "off",
+        "editor.selectionHighlight": false,
+        "editor.semanticHighlighting.enabled": false,
+        "editor.bracketPairColorization.enabled": false,
+        "editor.guides.indentation": false,
+        "editor.wordBasedSuggestions": "off"
+    $tail
+    $CODIUM_MARK_END
+EOF
+}
+
+# Убрать свой блок. Как и у Tabby, только awk с index(): маркер — это
+# комментарий, и его символы в регулярном выражении значат не себя.
+codium_strip_block() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    local tmp
+    tmp=$(mktemp)
+    awk -v a="$CODIUM_MARK_BEGIN" -v b="$CODIUM_MARK_END" '
+        index($0, a) { skip = 1 }
+        !skip { print }
+        index($0, b) { skip = 0 }
+    ' "$file" > "$tmp"
+    mv "$tmp" "$file"
+}
+
+# Вставить блок сразу после открывающей скобки объекта.
+codium_settings_write() {
+    mkdir -p "$(dirname "$CODIUM_SETTINGS")"
+
+    # Файла может не быть вовсе: редактор создаёт его при первой правке
+    # настроек, а до тех пор их просто нет.
+    if [ ! -s "$CODIUM_SETTINGS" ]; then
+        {
+            printf '{\n'
+            codium_block 0
+            printf '}\n'
+        } > "$CODIUM_SETTINGS"
+        return 0
+    fi
+
+    codium_strip_block "$CODIUM_SETTINGS"
+
+    local tmp
+    tmp=$(mktemp)
+    awk -v block="$(codium_block 1)" -v block0="$(codium_block 0)" '
+        { lines[++n] = $0 }
+        END {
+            # Скобку ищем в коде, а не в комментарии: строка вида
+            # «// тут { скобка }» открывающей не является, и вставка
+            # блока в неё сломала бы файл.
+            for (i = 1; i <= n; i++) {
+                s = lines[i]
+                sub(/^[ \t]+/, "", s)
+                if (substr(s, 1, 2) == "//") continue
+                if (index(lines[i], "{")) { first = i; break }
+            }
+            if (!first) { exit 3 }
+
+            pos = index(lines[first], "{")
+            head = substr(lines[first], 1, pos)
+            rest = substr(lines[first], pos + 1)
+
+            # Пуст ли объект: если кроме пробелов и закрывающей скобки
+            # ничего нет, запятая за нашим блоком будет лишней.
+            body = rest
+            for (i = first + 1; i <= n; i++) body = body lines[i]
+            gsub(/[ \t\r]/, "", body)
+            empty = (body == "" || body == "}")
+
+            # Всё, что стояло выше открывающей скобки — чужие комментарии
+            for (i = 1; i < first; i++) print lines[i]
+            print head
+            print (empty ? block0 : block)
+            if (rest ~ /[^ \t\r]/) print rest
+            for (i = first + 1; i <= n; i++) print lines[i]
+        }
+    ' "$CODIUM_SETTINGS" > "$tmp"
+    local rc=$?
+    if [ "$rc" != "0" ] || [ ! -s "$tmp" ]; then
+        rm -f "$tmp"
+        return 1
+    fi
+    mv "$tmp" "$CODIUM_SETTINGS"
+    return 0
+}
+
+# Ярлык редактора. Имя пакета и имя ярлыка не обязаны совпадать, а
+# рядом лежит обработчик ссылок codium-url-handler — он тут не годится.
+codium_desktop() {
+    local f
+    for f in "$SYS_APPS/codium.desktop" \
+             "$HOME/.local/share/applications/codium.desktop" \
+             "$SYS_APPS/vscodium.desktop"; do
+        if [ -f "$f" ]; then
+            basename "$f"
+            return 0
+        fi
+    done
+    f=$(ls "$SYS_APPS" 2>/dev/null | grep -i 'codium' | grep -v 'url-handler' | head -1)
+    if [ -n "$f" ]; then
+        printf '%s' "$f"
+        return 0
+    fi
+    return 1
+}
+
+codium_show() {
+    head1 "редактор VSCodium"
+    note "настройки: $CODIUM_SETTINGS"
+
+    if [ -f "$CODIUM_SETTINGS" ] && grep -qF "$CODIUM_MARK_BEGIN" "$CODIUM_SETTINGS"; then
+        ok "наш блок на месте: .txt открывается как простой текст"
+    else
+        note "нашего блока нет — поставить: $0 codium --txt"
+    fi
+
+    local now
+    now=$(xdg-mime query default text/plain 2>/dev/null)
+    if [ -n "$now" ]; then
+        case "$now" in
+            *codium*) ok "text/plain открывает: $now" ;;
+            *)        note "text/plain открывает: $now" ;;
+        esac
+    fi
+    return 0
+}
+
+cmd_codium() {
+    local txt=0
+    local revert=0
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --txt)     txt=1; shift ;;
+            --revert)  revert=1; shift ;;
+            -h|--help) help_codium; return 0 ;;
+            -*) die "codium: неизвестный параметр $1" ;;
+            *)  die "codium: непонятно '$1' — см. $0 help codium" ;;
+        esac
+    done
+
+    if [ "$txt" = "0" ] && [ "$revert" = "0" ]; then
+        codium_show
+        return $?
+    fi
+
+    head1 "редактор VSCodium"
+
+    if [ "$revert" = "1" ]; then
+        if would "снять свой блок из настроек редактора"; then
+            return 0
+        fi
+        if [ -f "$CODIUM_SETTINGS" ]; then
+            backup_once "$CODIUM_SETTINGS" "codium-settings.json"
+            codium_strip_block "$CODIUM_SETTINGS"
+            ok "блок снят, остальные настройки не тронуты"
+        else
+            note "файла настроек нет — снимать нечего"
+        fi
+        local was
+        was=$(recall CODIUM_TXT_HANDLER)
+        if [ -n "$was" ]; then
+            xdg-mime default "$was" text/plain 2>/dev/null
+            ok "text/plain снова открывает: $was"
+        fi
+        return 0
+    fi
+
+    if would "настроить .txt: простой текст и открытие в редакторе"; then
+        return 0
+    fi
+
+    # --- настройки редактора -----------------------------------------
+    if [ -f "$CODIUM_SETTINGS" ]; then
+        backup_once "$CODIUM_SETTINGS" "codium-settings.json"
+    fi
+
+    if ! codium_settings_write; then
+        bad "не разобрал settings.json — оставил как есть"
+        note "чаще всего дело в незакрытой скобке; открой файл и проверь:"
+        note "  $CODIUM_SETTINGS"
+        return 1
+    fi
+    ok "*.txt открывается как простой текст, подсветка погашена"
+
+    # Наш блок стоит первым, а в JSON при одинаковых ключах побеждает
+    # последний. Молчать об этом нельзя: человек решит, что не сработало.
+    local dup
+    dup=$(awk -v a="$CODIUM_MARK_BEGIN" -v b="$CODIUM_MARK_END" '
+        index($0, a) { skip = 1 }
+        !skip && (index($0, "\"files.associations\"") || index($0, "\"[plaintext]\"")) { print }
+        index($0, b) { skip = 0 }
+    ' "$CODIUM_SETTINGS")
+    if [ -n "$dup" ]; then
+        blank
+        note "ниже в файле есть свои такие же ключи — они сильнее наших:"
+        printf '%s
+' "$dup" | sed 's/^/      /' | dump
+        note "убери их, если подсветка так и останется"
+    fi
+
+    # --- чем открывать .txt -------------------------------------------
+    local desk
+    desk=$(codium_desktop)
+    if [ -z "$desk" ]; then
+        blank
+        note "ярлык редактора не найден — привязку типа файла пропустил"
+        note "поставить редактор: см. bootstrap.sh"
+        return 0
+    fi
+
+    if have xdg-mime; then
+        remember CODIUM_TXT_HANDLER "$(xdg-mime query default text/plain 2>/dev/null)"
+        xdg-mime default "$desk" text/plain 2>/dev/null
+        local got
+        got=$(xdg-mime query default text/plain 2>/dev/null)
+        case "$got" in
+            *codium*) ok "двойной клик по .txt открывает VSCodium" ;;
+            "")       note "проверить не вышло: xdg-mime промолчал" ;;
+            *)        note "text/plain всё ещё открывает $got — проверь вручную" ;;
+        esac
+    else
+        note "нет xdg-mime — привязку типа файла пропустил"
+    fi
+
+    blank
+    note "снять: $0 codium --revert"
     return 0
 }
 
@@ -7998,6 +8296,14 @@ exit 0'
 
     sb_write_stub pgrep 'exit 1'
     sb_write_stub pkill 'exit 0'
+    # xdg-mime: запоминаем назначения и отвечаем тем, что назначили
+    sb_write_stub xdg-mime '
+echo "$*" >> "$DK_STUB_STORE/xdg-mime.log"
+case "$1" in
+    default) echo "$2" > "$DK_STUB_STORE/mime-$(echo "$3" | tr / _).txt" ;;
+    query)   cat "$DK_STUB_STORE/mime-$(echo "$3" | tr / _).txt" 2>/dev/null || echo "org.gnome.TextEditor.desktop" ;;
+esac
+exit 0'
     for prog in nautilus conky notify-send gtk-update-icon-cache \
                 update-desktop-database xdg-open gnome-terminal; do
         sb_write_stub "$prog" 'exit 0'
@@ -8760,7 +9066,7 @@ PY
 }
 
 SELFTEST_ONLY=""
-SELFTEST_GROUPS="core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile tabby refresh tune report presets overview help"
+SELFTEST_GROUPS="core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile tabby codium refresh tune report presets overview help"
 
 selftest_full() {
     note "песочница с подставными gsettings, dconf, curl и systemd"
@@ -9963,6 +10269,99 @@ terminal:
     sandbox_drop
 }
 
+# Последняя строка нашего блока: «}» или «},». По ней видно, поставлена
+# ли запятая перед чужими ключами — без неё файл станет невалидным.
+codium_tail_of() {
+    awk -v m="$CODIUM_MARK_END" 'index($0, m) { print prev; exit } { prev = $0 }' "$1" \
+        | tr -d ' \t\r'
+}
+
+st_codium() {
+    t_group "codium: настройки редактора"
+    sandbox_new
+
+    local st="$SB/.config/VSCodium/User/settings.json"
+    mkdir -p "$SB/sys/applications"
+    printf '[Desktop Entry]\nName=VSCodium\nExec=codium %%F\nType=Application\n' \
+        > "$SB/sys/applications/codium.desktop"
+    # рядом лежит обработчик ссылок — его брать нельзя
+    printf '[Desktop Entry]\nName=VSCodium URL\nExec=codium --open-url\n' \
+        > "$SB/sys/applications/codium-url-handler.desktop"
+
+    # --- файла настроек ещё нет: создаём с нуля ------------------------
+    sandbox_run codium --txt
+    t_rc "настройки созданы с нуля" 0
+    t_file "файл настроек появился" "$st"
+    t_has "язык привязан к txt" "$st" '"*.txt": "plaintext"'
+    t_has "подсветка повторов погашена" "$st" "occurrencesHighlight"
+
+    local o c
+    o=$(tr -cd '{' < "$st" | wc -c)
+    c=$(tr -cd '}' < "$st" | wc -c)
+    t_eq "скобки сошлись" "$o" "$c"
+    # В пустом объекте запятая за блоком сделала бы файл невалидным
+    t_eq "лишней запятой нет" "}" "$(codium_tail_of "$st")"
+
+    local h
+    h=$(cat "$SB_STORE/mime-text_plain.txt" 2>/dev/null)
+    case "$h" in
+        *codium.desktop*) t_ok "text/plain отдан редактору" ;;
+        *) t_fail "привязка типа файла не назначена"; t_detail "получено: ${h:-пусто}" ;;
+    esac
+    case "$h" in
+        *url-handler*) t_fail "взят обработчик ссылок вместо редактора" ;;
+        *) t_ok "обработчик ссылок не перепутан с редактором" ;;
+    esac
+
+    # --- поверх чужих настроек ----------------------------------------
+    printf '{\n    "workbench.colorTheme": "Quiet Light",\n    "editor.fontSize": 13\n}\n' > "$st"
+    sandbox_run codium --txt
+    t_rc "блок лёг в существующий файл" 0
+    t_has "чужая тема уцелела" "$st" "Quiet Light"
+    t_has "чужой кегль уцелел" "$st" "editor.fontSize"
+    t_has "наш блок на месте" "$st" "dk:codium-begin"
+    # Ниже есть другие ключи — значит за блоком нужна запятая
+    t_eq "запятая за блоком поставлена" "}," "$(codium_tail_of "$st")"
+    o=$(tr -cd '{' < "$st" | wc -c)
+    c=$(tr -cd '}' < "$st" | wc -c)
+    t_eq "скобки сошлись и здесь" "$o" "$c"
+
+    # Повтор не должен плодить второй блок
+    sandbox_run codium --txt
+    local n
+    n=$(grep -c "dk:codium-begin" "$st")
+    t_eq "после повтора блок один" "1" "$n"
+
+    # Комментарий над скобкой: и сам он должен уцелеть, и открывающей
+    # скобкой считаться не должен — иначе блок ляжет внутрь комментария.
+    printf '// мои заметки: тут был { старый конфиг }\n{\n    "editor.fontSize": 13\n}\n' > "$st"
+    sandbox_run codium --txt
+    t_has "чужой комментарий над скобкой уцелел" "$st" "мои заметки"
+    t_has "настройка под комментарием уцелела" "$st" "editor.fontSize"
+    o=$(tr -cd '{' < "$st" | wc -c)
+    c=$(tr -cd '}' < "$st" | wc -c)
+    t_eq "скобки сошлись с комментарием" "$o" "$c"
+
+    # Свой такой же ключ ниже сильнее нашего — об этом обязаны сказать
+    printf '{\n    "files.associations": { "*.txt": "log" }\n}\n' > "$st"
+    sandbox_run codium --txt
+    t_out_has "предупредили о своём таком же ключе" "сильнее"
+
+    sandbox_run codium --revert
+    t_hasnt "блок снят" "$st" "dk:codium-begin"
+    t_has "чужой ключ пережил откат" "$st" "files.associations"
+
+    # Откат обязан вернуть тот обработчик .txt, что стоял до нас
+    h=$(cat "$SB_STORE/mime-text_plain.txt" 2>/dev/null)
+    case "$h" in
+        *codium*) t_fail "прежний обработчик .txt не вернулся"; t_detail "осталось: $h" ;;
+        "")       t_fail "обработчик .txt не восстановлен"; t_detail "пусто" ;;
+        *)        t_ok "прежний обработчик .txt вернулся" ;;
+    esac
+
+    sandbox_drop
+}
+
 st_profile() {
     t_group "profile: снимки оформления"
     sandbox_new
@@ -10380,6 +10779,7 @@ desktop-kit $VERSION — настройка десктопа Ubuntu 24.04 / GNOM
                  $(presets_names widget)
   terminal     GNOME Terminal: прозрачность, шрифт, палитра
   tabby        стеклянный Tabby: плотность фона терминала
+  codium       редактор VSCodium: .txt как текст, открытие по двойному клику
                  $(presets_names terminal)
 
   Слово после команды — готовый набор параметров: buttons thin,
@@ -10522,6 +10922,7 @@ cmd_help() {
         themes)     help_themes ;;
         profile)    help_profile ;;
         tabby)      help_tabby ;;
+        codium)     help_codium ;;
         look)       help_look ;;
         refresh)    help_refresh ;;
         tune)       help_tune ;;
@@ -10598,6 +10999,7 @@ case "$COMMAND" in
     themes)     cmd_themes "$@" ;;
     profile)    cmd_profile "$@" ;;
     tabby)      cmd_tabby "$@" ;;
+    codium)     cmd_codium "$@" ;;
     look)       cmd_look "$@" ;;
     refresh)    cmd_refresh "$@" ;;
     tune)       cmd_tune "$@" ;;

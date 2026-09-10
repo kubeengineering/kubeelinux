@@ -84,6 +84,8 @@ recipe "Чистка банка обоев" prune_wallpapers
 recipe "Горячие клавиши" cmd_keys
 recipe "Панель Dash to Panel" cmd_panel
 recipe "Своя тема для приложения" cmd_app
+recipe "Прозрачность окна приложения" app_opacity "рядом opacity_install_watch — сторож"
+recipe "Настройки VSCodium, подсветка .txt" cmd_codium "вставка блока — codium_settings_write"
 recipe "Локальная апка по http" cmd_serve
 recipe "Откат: общая логика" cmd_revert
 recipe "Откат конкретных ключей GNOME" revert_gi_keys

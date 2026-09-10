@@ -426,6 +426,16 @@ if [ "$WANT_LOOK" = "1" ] && [ -f "$KIT" ]; then
         ok "погода в виджете (город: $CITY)"
         [ "$CITY" != "Moscow" ] && bash "$KIT" --yes widget --city "$CITY" >>"$LOG" 2>&1
     fi
+
+    # Редактор мы поставили сами, значит и настроить его — наша забота:
+    # иначе .txt открывается не в нём и раскрашивается как код.
+    if command -v codium >/dev/null; then
+        if bash "$KIT" --yes codium --txt >>"$LOG" 2>&1; then
+            ok "VSCodium: .txt как простой текст и открытие по двойному клику"
+        else
+            wr "настройки редактора не встали — потом: design codium --txt"
+        fi
+    fi
 fi
 
 # ─────────────────────────────────────────────── итог
