@@ -9,6 +9,7 @@
 # Экран снимается снаружи, через VBoxManage: внутри гостя для этого
 # пришлось бы держать gnome-screenshot и ловить его собственное окно.
 #
+#   bash tools/shots.sh --prepare               усмирить стенд перед съёмкой
 #   bash tools/shots.sh buttons-size "buttons --size 28 22"
 #   bash tools/shots.sh --scene nautilus        открыть окно в кадре
 #   bash tools/shots.sh --list                  что уже снято
@@ -110,7 +111,45 @@ scene() {
     sleep 1
 }
 
+# Подготовить стенд. Каждая строка здесь — след от потерянного часа.
+#
+# wmctrl и xdotool           после отката снапшота их может не быть, а
+#                            без них не проверить окна и не нажать Esc
+# xrefresh (x11-xserver-utils) единственный способ получить свежий кадр
+# apport                     лезет диалогом «приложение закрылось» прямо
+#                            в кадр, ровно поверх снимаемого окна
+# unattended-upgrades,       поднимают load average до 25 на четырёх
+# update-notifier            ядрах, после чего ssh отваливается по
+#                            таймауту и съёмка встаёт
+# conky update_interval      на программном рендеринге Cairo виджет
+#                            съедает 98% процессора; раз в пять секунд
+#                            он рисует то же самое, но машина жива
+prepare() {
+    say "готовлю стенд"
+    $SSH "$HOST" "sudo apt-get install -y wmctrl xdotool x11-xserver-utils >/dev/null 2>&1; \
+        sudo systemctl stop apport.service unattended-upgrades packagekit 2>/dev/null; \
+        sudo systemctl mask unattended-upgrades 2>/dev/null; \
+        sudo sed -i 's/^enabled=1/enabled=0/' /etc/default/apport 2>/dev/null; \
+        pkill -f update-notifier 2>/dev/null; pkill -f apport-gtk 2>/dev/null; \
+        sudo rm -f /var/crash/* 2>/dev/null; \
+        sed -i 's/^[[:space:]]*update_interval[[:space:]]*=.*/    update_interval = 5,/' \
+            ~/.config/conky/main.conf 2>/dev/null; true" >/dev/null 2>&1
+
+    local have
+    have=$($SSH "$HOST" "which wmctrl xdotool xrefresh 2>/dev/null | wc -l" 2>/dev/null)
+    if [ "${have:-0}" -lt 3 ]; then
+        say "не встали нужные программы — снимки будут ненадёжны"
+        return 1
+    fi
+    say "стенд готов: помехи выключены, инструменты на месте"
+    return 0
+}
+
 case "${1:-}" in
+    --prepare)
+        prepare
+        exit $?
+        ;;
     --list)
         ls -1 "$OUT" 2>/dev/null || say "снимков пока нет"
         exit 0

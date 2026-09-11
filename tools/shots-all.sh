@@ -44,6 +44,10 @@ terminal-opacity|terminal --opacity 45|terminal|terminal
 wall-random|wall --random|clean|
 '
 
+# Стенд сначала привести в чувство: без этого apport лезет диалогами
+# прямо в кадр, а фоновые обновления Ubuntu кладут ssh по таймауту.
+bash "$SHOT" --prepare </dev/null
+
 printf '%s\n' "$PLAN" | while IFS='|' read -r name cmd sc wait_for; do
     [ -n "$name" ] || continue
     case "$name" in \#*) continue ;; esac
