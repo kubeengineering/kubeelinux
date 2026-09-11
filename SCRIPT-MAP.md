@@ -1,6 +1,6 @@
 # Карта desktop-kit.sh
 
-Всего 11173 строк, 455 КБ, примерно 155 тыс. токенов целиком.
+Всего 11208 строк, 456 КБ, примерно 155 тыс. токенов целиком.
 
 **Не читай файл целиком.** Найди место здесь или через `grep -n`, потом
 `Read` с `offset`/`limit` на 40–80 строк и `Edit` по найденному фрагменту.
@@ -11,42 +11,42 @@
 
 | Задача | Куда смотреть |
 |---|---|
-| Размер, цвет, подсветка кнопок заголовка | `cmd_buttons` — строка 2737, разбор ключей в начале, CSS ниже |
-| Значки заголовка: откуда берутся | `install_fluent_glyphs` — строка 3053, адрес в $FLUENT_ICONS |
-| Почему значков не видно | `diagnose_buttons` — строка 2606 |
-| Скругление окон и меню | `cmd_corners` — строка 3588 |
-| Тема окон, схема, переключение светлая/тёмная | `cmd_theme` — строка 4435 |
-| Разбор имени темы на варианты | `theme_variant_of` — строка 4128, рядом theme_base_of, theme_swap_variant |
-| Поиск парного варианта темы | `theme_find_variant` — строка 4210 |
-| Добавить тему в банк | `theme_repo_for` — строка 3717, плюс themes_bank ниже |
-| Список и установка тем банка | `cmd_themes` — строка 3828 |
-| Проверка темы на совместимость с кнопками | `themes_check` — строка 3955 |
-| Тема значков и цвет папок | `cmd_icons` — строка 4935 |
-| Шрифты интерфейса | `cmd_font` — строка 5075 |
-| Виджет conky: подложка, цвет, плотность | `cmd_widget` — строка 5377 |
-| Прозрачность и палитра терминала | `cmd_terminal` — строка 5644 |
-| Страница новой вкладки Chrome | `cmd_newtab` — строка 5846, разметка в heredoc ниже по функции |
-| Плитки без python3 | `newtab_tiles_plain` — строка 5780 |
-| Смена обоев по порядку | `cmd_wall` — строка 6585 |
-| Докачка обоев и расписание | `cmd_wallpapers` — строка 6256 |
-| Чистка банка обоев | `prune_wallpapers` — строка 6516 |
-| Горячие клавиши | `cmd_keys` — строка 8008 |
-| Панель Dash to Panel | `cmd_panel` — строка 8092 |
-| Своя тема для приложения | `cmd_app` — строка 7004 |
-| Прозрачность окна приложения | `app_opacity` — строка 6904, рядом opacity_install_watch — сторож |
-| Настройки VSCodium, подсветка .txt | `cmd_codium` — строка 786, вставка блока — codium_settings_write |
-| Локальная апка по http | `cmd_serve` — строка 7167 |
-| Откат: общая логика | `cmd_revert` — строка 7591 |
-| Откат конкретных ключей GNOME | `revert_gi_keys` — строка 7575 |
-| Что показывает status | `cmd_status` — строка 7280 |
-| Полный перечень изменяемого | `help_settings` — строка 10970 |
-| Общий текст справки | `usage` — строка 10908 |
+| Размер, цвет, подсветка кнопок заголовка | `cmd_buttons` — строка 2761, разбор ключей в начале, CSS ниже |
+| Значки заголовка: откуда берутся | `install_fluent_glyphs` — строка 3077, адрес в $FLUENT_ICONS |
+| Почему значков не видно | `diagnose_buttons` — строка 2630 |
+| Скругление окон и меню | `cmd_corners` — строка 3612 |
+| Тема окон, схема, переключение светлая/тёмная | `cmd_theme` — строка 4459 |
+| Разбор имени темы на варианты | `theme_variant_of` — строка 4152, рядом theme_base_of, theme_swap_variant |
+| Поиск парного варианта темы | `theme_find_variant` — строка 4234 |
+| Добавить тему в банк | `theme_repo_for` — строка 3741, плюс themes_bank ниже |
+| Список и установка тем банка | `cmd_themes` — строка 3852 |
+| Проверка темы на совместимость с кнопками | `themes_check` — строка 3979 |
+| Тема значков и цвет папок | `cmd_icons` — строка 4959 |
+| Шрифты интерфейса | `cmd_font` — строка 5099 |
+| Виджет conky: подложка, цвет, плотность | `cmd_widget` — строка 5401 |
+| Прозрачность и палитра терминала | `cmd_terminal` — строка 5668 |
+| Страница новой вкладки Chrome | `cmd_newtab` — строка 5870, разметка в heredoc ниже по функции |
+| Плитки без python3 | `newtab_tiles_plain` — строка 5804 |
+| Смена обоев по порядку | `cmd_wall` — строка 6609 |
+| Докачка обоев и расписание | `cmd_wallpapers` — строка 6280 |
+| Чистка банка обоев | `prune_wallpapers` — строка 6540 |
+| Горячие клавиши | `cmd_keys` — строка 8032 |
+| Панель Dash to Panel | `cmd_panel` — строка 8116 |
+| Своя тема для приложения | `cmd_app` — строка 7028 |
+| Прозрачность окна приложения | `app_opacity` — строка 6928, рядом opacity_install_watch — сторож |
+| Настройки VSCodium, подсветка .txt | `cmd_codium` — строка 810, вставка блока — codium_settings_write |
+| Локальная апка по http | `cmd_serve` — строка 7191 |
+| Откат: общая логика | `cmd_revert` — строка 7615 |
+| Откат конкретных ключей GNOME | `revert_gi_keys` — строка 7599 |
+| Что показывает status | `cmd_status` — строка 7304 |
+| Полный перечень изменяемого | `help_settings` — строка 11005 |
+| Общий текст справки | `usage` — строка 10943 |
 | Диспетчер команд (добавить новую) | ищи `случай) cmd_` в самом конце файла: `grep -n 'cmd_status "$@"' desktop-kit.sh` |
-| Правила предшественника look.sh | `strip_legacy_css` — строка 2356 |
-| Резервные копии и откат файлов | `backup_once` 2153, `restore_backup` 2183 |
-| Блоки правил в gtk.css | `css_append` 2420, `css_strip` 2322 |
-| Запомнить значение для отката | `remember` 2288 / `recall` 2304 |
-| Наши текущие настройки | `state_set` 2258 / `state_get` 2273 |
+| Правила предшественника look.sh | `strip_legacy_css` — строка 2380 |
+| Резервные копии и откат файлов | `backup_once` 2177, `restore_backup` 2207 |
+| Блоки правил в gtk.css | `css_append` 2444, `css_strip` 2346 |
+| Запомнить значение для отката | `remember` 2312 / `recall` 2328 |
+| Наши текущие настройки | `state_set` 2282 / `state_get` 2297 |
 
 ## Правишь -> гоняй (вместо полного прогона)
 
@@ -87,25 +87,25 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
 
 | Команда | Реализация | Справка | Тесты |
 |---|---|---|---|
-| `buttons` | 2737 | 2554 | 9350 |
-| `corners` | 3588 | 3145 | 9495 |
-| `theme` | 4435 | 3663 | 9522 |
-| `themes` | 3828 | 3759 | 10227 |
-| `icons` | 4935 | 4873 | 9696 |
-| `font` | 5075 | 5062 | 9769 |
-| `widget` | 5377 | 5145 | 9801 |
-| `terminal` | 5644 | 5617 | 9872 |
-| `newtab` | 5846 | 5802 | 9901 |
-| `wallpapers` | 6256 | 6215 | 9985 |
-| `wall` | 6585 | 6560 | 9951 |
-| `serve` | 7167 | 7147 | 10149 |
-| `app` | 7004 | 6689 | 10117 |
-| `keys` | 8008 | 7820 | 10027 |
-| `panel` | 8092 | 8046 | 10071 |
-| `audit` | 8202 | — | — |
-| `status` | 7280 | — | — |
-| `selftest` | 8808 | 8218 | — |
-| `revert` | 7591 | 7375 | 10170 |
+| `buttons` | 2761 | 2578 | 9374 |
+| `corners` | 3612 | 3169 | 9519 |
+| `theme` | 4459 | 3687 | 9546 |
+| `themes` | 3852 | 3783 | 10251 |
+| `icons` | 4959 | 4897 | 9720 |
+| `font` | 5099 | 5086 | 9793 |
+| `widget` | 5401 | 5169 | 9825 |
+| `terminal` | 5668 | 5641 | 9896 |
+| `newtab` | 5870 | 5826 | 9925 |
+| `wallpapers` | 6280 | 6239 | 10009 |
+| `wall` | 6609 | 6584 | 9975 |
+| `serve` | 7191 | 7171 | 10173 |
+| `app` | 7028 | 6713 | 10141 |
+| `keys` | 8032 | 7844 | 10051 |
+| `panel` | 8116 | 8070 | 10095 |
+| `audit` | 8226 | — | — |
+| `status` | 7304 | — | — |
+| `selftest` | 8832 | 8242 | — |
+| `revert` | 7615 | 7399 | 10194 |
 
 ## Секции файла
 
@@ -116,38 +116,38 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
     148  Обзор команды: что сейчас, что можно
     270  tabby — стеклянный терминал
     505  codium — редактор VSCodium
-    926  look — готовые образы рабочего стола
-    1111  profile — снимок оформления целиком
-    1478  Банк тем значков
-    1815  Тема для GTK4-приложений
-    1898  Пресеты: именованные наборы параметров
-    1984  Вопросы пользователю
-    2551  buttons — кнопки заголовка окна
-    3142  corners — скругление окон
-    3165  tune — настройка вопросами
-    3660  theme — тема GTK
-    3749  themes — банк готовых тем
-    4870  icons — тема значков и цвет папок
-    5059  font — шрифт интерфейса
-    5142  widget — виджет conky
-    5614  terminal — GNOME Terminal
-    5775  newtab — страница новой вкладки Chrome
-    6167  wallpapers / wall — банк обоев и смена
-    6686  app — тема отдельного приложения
-    7144  serve — локальная апка по http
-    7277  status — что применено
-    7372  revert — откат
-    7817  keys — горячие клавиши
-    8043  panel — Dash to Panel
-    8199  audit — снимок системы
-    8215  selftest — проверка на живой машине
-    8258  Каркас самопроверки: песочница с подставными внешними программами
-    10905  help и диспетчер
+    950  look — готовые образы рабочего стола
+    1135  profile — снимок оформления целиком
+    1502  Банк тем значков
+    1839  Тема для GTK4-приложений
+    1922  Пресеты: именованные наборы параметров
+    2008  Вопросы пользователю
+    2575  buttons — кнопки заголовка окна
+    3166  corners — скругление окон
+    3189  tune — настройка вопросами
+    3684  theme — тема GTK
+    3773  themes — банк готовых тем
+    4894  icons — тема значков и цвет папок
+    5083  font — шрифт интерфейса
+    5166  widget — виджет conky
+    5638  terminal — GNOME Terminal
+    5799  newtab — страница новой вкладки Chrome
+    6191  wallpapers / wall — банк обоев и смена
+    6710  app — тема отдельного приложения
+    7168  serve — локальная апка по http
+    7301  status — что применено
+    7396  revert — откат
+    7841  keys — горячие клавиши
+    8067  panel — Dash to Panel
+    8223  audit — снимок системы
+    8239  selftest — проверка на живой машине
+    8282  Каркас самопроверки: песочница с подставными внешними программами
+    10940  help и диспетчер
 
 ## Пути и константы
 
-    38  VERSION="1.6"
-    42  VERSION_DATE="10.09.2026"
+    38  VERSION="1.7"
+    42  VERSION_DATE="11.09.2026"
     43  SELF=$(readlink -f "$0")
     64  STATE_DIR="$HOME/.local/state/desktop-kit"
     65  BACKUP_DIR="$STATE_DIR/backups"
@@ -174,33 +174,33 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
     534  CODIUM_SETTINGS="$HOME/.config/VSCodium/User/settings.json"
     535  CODIUM_MARK_BEGIN="// dk:codium-begin"
     536  CODIUM_MARK_END="// dk:codium-end"
-    1124  PROFILE_DIR="$STATE_DIR/profiles"
-    1980  PRESET_ARGS=""
+    1148  PROFILE_DIR="$STATE_DIR/profiles"
+    2004  PRESET_ARGS=""
 
 ## Где генерируется CSS
 
-    2850  css_append buttons "$CSS3" "$(cat <<EOF
-    2866  css_append buttons "$CSS4" "$(cat <<EOF
-    2888  css_append buttons "$CSS3" "$(cat <<EOF
-    2956  css_append buttons "$CSS4" "$(cat <<EOF
-    3621  css_append corners "$CSS3" "$(cat <<EOF
-    3639  css_append corners "$CSS4" "$(cat <<EOF
+    2874  css_append buttons "$CSS3" "$(cat <<EOF
+    2890  css_append buttons "$CSS4" "$(cat <<EOF
+    2912  css_append buttons "$CSS3" "$(cat <<EOF
+    2980  css_append buttons "$CSS4" "$(cat <<EOF
+    3645  css_append corners "$CSS3" "$(cat <<EOF
+    3663  css_append corners "$CSS4" "$(cat <<EOF
 
 Селекторы, которые чаще всего правятся:
-    2852  headerbar button.titlebutton,
-    2854  button.titlebutton {
-    2859  headerbar button.titlebutton image,
-    2861  button.titlebutton image {
-    2868  windowcontrols > button,
-    2874  windowcontrols > button > image {
-    2891  headerbar button.titlebutton,
-    2893  button.titlebutton {
-    2901  headerbar button.titlebutton image,
-    2903  button.titlebutton image {
-    2912  headerbar button.titlebutton:hover,
-    2914  button.titlebutton:hover {
-    2920  headerbar button.titlebutton:hover image,
-    2921  button.titlebutton:hover image {
+    2876  headerbar button.titlebutton,
+    2878  button.titlebutton {
+    2883  headerbar button.titlebutton image,
+    2885  button.titlebutton image {
+    2892  windowcontrols > button,
+    2898  windowcontrols > button > image {
+    2915  headerbar button.titlebutton,
+    2917  button.titlebutton {
+    2925  headerbar button.titlebutton image,
+    2927  button.titlebutton image {
+    2936  headerbar button.titlebutton:hover,
+    2938  button.titlebutton:hover {
+    2944  headerbar button.titlebutton:hover image,
+    2945  button.titlebutton:hover image {
 
 ## Ключи состояния
 
@@ -247,8 +247,8 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
 ## Самопроверка
 
     группы:      core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile tabby codium refresh tune report presets overview help
-    каркас:      sandbox_new 8284, sandbox_run 8542
-    утверждения: t_eq 8617, t_has 8644, t_out_has 8694, t_rc 8708
+    каркас:      sandbox_new 8308, sandbox_run 8566
+    утверждения: t_eq 8641, t_has 8668, t_out_has 8718, t_rc 8732
     заглушки:    14 штук, ищи sb_write_stub
 
 Запуск одной группы: `bash desktop-kit.sh selftest --only theme`
@@ -282,249 +282,250 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
       574  codium_part_txt
       605  codium_part_alt
       619  codium_block
-      649  codium_parts_merge
-      664  codium_strip_block
-      678  codium_settings_write
-      741  codium_desktop
-      759  codium_show
-      786  cmd_codium
-      944  look_table
-      952  look_names
-      956  help_look
-      981  look_list
-      994  look_show
-      1016 look_apply
-      1085 cmd_look
-      1129 profile_keys
-      1155 profile_files
-      1164 help_profile
-      1195 profile_autoname
-      1199 profile_list_names
-      1211 profile_save
-      1279 profile_load
-      1376 profile_show
-      1404 profile_drop
-      1425 profile_list
-      1448 cmd_profile
-      1490 icons_bank
-      1515 icons_repo_for
-      1519 icons_bank_list
-      1555 icons_clean
-      1580 git_clone_retry
-      1652 disk_room_warn
-      1683 icons_copy_theme
-      1698 icons_get
-      1832 theme_gtk4_css
-      1846 gtk4_theme_unlink
-      1861 gtk4_theme_apply
-      1907 presets_table
-      1937 preset_args
-      1945 presets_names
-      1950 presets_list
-      1959 preset_expand
-      1995 ask_possible
-      2007 ask_head
-      2016 ask_num
-      2053 ask_pick
-      2099 ask_str
-      2117 ask_yes
-      2129 would
-      2139 gi_get
-      2140 gi_set
-      2147 have
-      2153 backup_once
-      2183 restore_backup
-      2258 state_set
-      2273 state_get
-      2288 remember
-      2304 recall
-      2322 css_strip
-      2344 has_legacy_css
-      2356 strip_legacy_css
-      2408 icon_base_of
-      2420 css_append
-      2439 css_has
-      2445 untangle_css
-      2469 untangle_gtk4
-      2473 untangle_gtk3
-      2479 restart_gtk_apps
-      2494 restart_conky
-      2517 need_args
-      2526 is_number
-      2530 is_decimal
-      2534 is_hex_colour
-      2538 require_tools
-      2554 help_buttons
-      2606 diagnose_buttons
-      2721 buttons_args
-      2737 cmd_buttons
-      3040 darken_hex
-      3053 install_fluent_glyphs
-      3145 help_corners
-      3168 help_tune
-      3188 tune_recap
-      3194 cmd_tune
-      3243 tune_corners
-      3271 tune_buttons
-      3331 tune_widget
-      3397 tune_newtab
-      3461 tune_terminal
-      3490 tune_theme
-      3503 tune_font
-      3512 help_refresh
-      3529 cmd_refresh
-      3588 cmd_corners
-      3663 help_theme
-      3717 theme_repo_for
-      3759 help_themes
-      3802 themes_bank
-      3828 cmd_themes
-      3864 themes_list
-      3884 themes_install
-      3955 themes_check
-      4015 list_themes
-      4041 theme_exists
-      4052 lower
-      4054 theme_real_name
-      4066 theme_exists_ci
-      4085 theme_tokens
-      4096 theme_token
-      4100 theme_variant_pos
-      4128 theme_variant_of
-      4150 theme_rebuild
-      4184 theme_base_of
-      4198 theme_swap_variant
-      4210 theme_find_variant
-      4283 theme_light_by_sibling
-      4302 theme_has_dark_sibling
-      4314 theme_list_variants
-      4342 theme_switch_variant
-      4435 cmd_theme
-      4671 install_theme_check_symlink
-      4693 theme_build
-      4759 theme_copy_dir
-      4772 install_theme
-      4873 help_icons
-      4911 list_user_icon_themes
-      4923 list_icon_themes
-      4935 cmd_icons
-      5062 help_font
-      5075 cmd_font
-      5145 help_widget
-      5182 weather_line_path
-      5186 weather_line_install
-      5224 widget_modules_table
-      5237 widget_add_module
-      5294 widget_init
-      5377 cmd_widget
-      5589 conf_value
-      5601 hex_brightness
-      5617 help_terminal
-      5635 term_profile
-      5644 cmd_terminal
-      5749 apply_wal_palette
-      5780 newtab_tiles_plain
-      5802 help_newtab
-      5824 overview_newtab
-      5846 cmd_newtab
-      5942 rebuild_newtab
-      6153 tick
-      6170 find_wallpaper_dir
-      6185 current_wallpaper
-      6203 detect_resolution
-      6215 help_wallpapers
-      6238 week_themes
-      6247 wallpaper_urls
-      6256 cmd_wallpapers
-      6448 install_wallpaper_timer
-      6516 prune_wallpapers
-      6560 help_wall
-      6585 cmd_wall
-      6689 help_app
-      6747 opacity_to_hex
-      6753 opacity_windows_of
-      6759 opacity_apply_now
-      6776 opacity_install_watch
-      6832 opacity_remove_watch
-      6844 app_windows
-      6904 app_opacity
-      7004 cmd_app
-      7147 help_serve
-      7167 cmd_serve
-      7280 cmd_status
-      7375 help_revert
-      7411 revert_terminal
-      7449 revert_panel
-      7484 revert_app
-      7518 revert_keys
-      7554 revert_serve
-      7575 revert_gi_keys
-      7591 cmd_revert
-      7820 help_keys
-      7846 keys_list_paths
-      7851 keys_show
-      7875 keys_add
-      7961 keys_remove
-      8008 cmd_keys
-      8046 help_panel
-      8075 panel_json_set
-      8092 cmd_panel
-      8202 cmd_audit
-      8218 help_selftest
-      8277 sb_write_stub
-      8284 sandbox_new
-      8515 sb_set
-      8526 sb_get
-      8534 sb_dconf
-      8542 sandbox_run
-      8568 sandbox_verify
-      8592 sandbox_run_no
-      8600 sandbox_drop
-      8617 t_eq
-      8631 t_ne
-      8644 t_has
-      8664 t_hasnt
-      8682 t_hasnt_out
-      8694 t_out_has
-      8708 t_rc
-      8722 t_rc_not
-      8748 t_file
-      8760 t_nofile
-      8779 t_group
-      8788 t_ok
-      8790 t_fail
-      8795 t_skip
-      8800 t_detail
-      8808 cmd_selftest
-      9194 selftest_full
-      9237 st_core
-      9350 st_buttons
-      9495 st_corners
-      9522 st_theme
-      9696 st_icons
-      9769 st_font
-      9801 st_widget
-      9872 st_terminal
-      9901 st_newtab
-      9951 st_wall
-      9985 st_wallpapers
-      10027 st_keys
-      10071 st_panel
-      10117 st_app
-      10149 st_serve
-      10170 st_revert
-      10227 st_themes
-      10269 st_look
-      10345 st_tabby
-      10397 codium_tail_of
-      10402 st_codium
-      10517 st_profile
-      10592 st_refresh
-      10640 st_tune
-      10721 st_report
-      10775 st_overview
-      10812 st_presets
-      10849 st_help
-      10908 usage
-      10970 help_settings
-      11043 cmd_help
+      653  codium_parts_current
+      673  codium_parts_merge
+      688  codium_strip_block
+      702  codium_settings_write
+      765  codium_desktop
+      783  codium_show
+      810  cmd_codium
+      968  look_table
+      976  look_names
+      980  help_look
+      1005 look_list
+      1018 look_show
+      1040 look_apply
+      1109 cmd_look
+      1153 profile_keys
+      1179 profile_files
+      1188 help_profile
+      1219 profile_autoname
+      1223 profile_list_names
+      1235 profile_save
+      1303 profile_load
+      1400 profile_show
+      1428 profile_drop
+      1449 profile_list
+      1472 cmd_profile
+      1514 icons_bank
+      1539 icons_repo_for
+      1543 icons_bank_list
+      1579 icons_clean
+      1604 git_clone_retry
+      1676 disk_room_warn
+      1707 icons_copy_theme
+      1722 icons_get
+      1856 theme_gtk4_css
+      1870 gtk4_theme_unlink
+      1885 gtk4_theme_apply
+      1931 presets_table
+      1961 preset_args
+      1969 presets_names
+      1974 presets_list
+      1983 preset_expand
+      2019 ask_possible
+      2031 ask_head
+      2040 ask_num
+      2077 ask_pick
+      2123 ask_str
+      2141 ask_yes
+      2153 would
+      2163 gi_get
+      2164 gi_set
+      2171 have
+      2177 backup_once
+      2207 restore_backup
+      2282 state_set
+      2297 state_get
+      2312 remember
+      2328 recall
+      2346 css_strip
+      2368 has_legacy_css
+      2380 strip_legacy_css
+      2432 icon_base_of
+      2444 css_append
+      2463 css_has
+      2469 untangle_css
+      2493 untangle_gtk4
+      2497 untangle_gtk3
+      2503 restart_gtk_apps
+      2518 restart_conky
+      2541 need_args
+      2550 is_number
+      2554 is_decimal
+      2558 is_hex_colour
+      2562 require_tools
+      2578 help_buttons
+      2630 diagnose_buttons
+      2745 buttons_args
+      2761 cmd_buttons
+      3064 darken_hex
+      3077 install_fluent_glyphs
+      3169 help_corners
+      3192 help_tune
+      3212 tune_recap
+      3218 cmd_tune
+      3267 tune_corners
+      3295 tune_buttons
+      3355 tune_widget
+      3421 tune_newtab
+      3485 tune_terminal
+      3514 tune_theme
+      3527 tune_font
+      3536 help_refresh
+      3553 cmd_refresh
+      3612 cmd_corners
+      3687 help_theme
+      3741 theme_repo_for
+      3783 help_themes
+      3826 themes_bank
+      3852 cmd_themes
+      3888 themes_list
+      3908 themes_install
+      3979 themes_check
+      4039 list_themes
+      4065 theme_exists
+      4076 lower
+      4078 theme_real_name
+      4090 theme_exists_ci
+      4109 theme_tokens
+      4120 theme_token
+      4124 theme_variant_pos
+      4152 theme_variant_of
+      4174 theme_rebuild
+      4208 theme_base_of
+      4222 theme_swap_variant
+      4234 theme_find_variant
+      4307 theme_light_by_sibling
+      4326 theme_has_dark_sibling
+      4338 theme_list_variants
+      4366 theme_switch_variant
+      4459 cmd_theme
+      4695 install_theme_check_symlink
+      4717 theme_build
+      4783 theme_copy_dir
+      4796 install_theme
+      4897 help_icons
+      4935 list_user_icon_themes
+      4947 list_icon_themes
+      4959 cmd_icons
+      5086 help_font
+      5099 cmd_font
+      5169 help_widget
+      5206 weather_line_path
+      5210 weather_line_install
+      5248 widget_modules_table
+      5261 widget_add_module
+      5318 widget_init
+      5401 cmd_widget
+      5613 conf_value
+      5625 hex_brightness
+      5641 help_terminal
+      5659 term_profile
+      5668 cmd_terminal
+      5773 apply_wal_palette
+      5804 newtab_tiles_plain
+      5826 help_newtab
+      5848 overview_newtab
+      5870 cmd_newtab
+      5966 rebuild_newtab
+      6177 tick
+      6194 find_wallpaper_dir
+      6209 current_wallpaper
+      6227 detect_resolution
+      6239 help_wallpapers
+      6262 week_themes
+      6271 wallpaper_urls
+      6280 cmd_wallpapers
+      6472 install_wallpaper_timer
+      6540 prune_wallpapers
+      6584 help_wall
+      6609 cmd_wall
+      6713 help_app
+      6771 opacity_to_hex
+      6777 opacity_windows_of
+      6783 opacity_apply_now
+      6800 opacity_install_watch
+      6856 opacity_remove_watch
+      6868 app_windows
+      6928 app_opacity
+      7028 cmd_app
+      7171 help_serve
+      7191 cmd_serve
+      7304 cmd_status
+      7399 help_revert
+      7435 revert_terminal
+      7473 revert_panel
+      7508 revert_app
+      7542 revert_keys
+      7578 revert_serve
+      7599 revert_gi_keys
+      7615 cmd_revert
+      7844 help_keys
+      7870 keys_list_paths
+      7875 keys_show
+      7899 keys_add
+      7985 keys_remove
+      8032 cmd_keys
+      8070 help_panel
+      8099 panel_json_set
+      8116 cmd_panel
+      8226 cmd_audit
+      8242 help_selftest
+      8301 sb_write_stub
+      8308 sandbox_new
+      8539 sb_set
+      8550 sb_get
+      8558 sb_dconf
+      8566 sandbox_run
+      8592 sandbox_verify
+      8616 sandbox_run_no
+      8624 sandbox_drop
+      8641 t_eq
+      8655 t_ne
+      8668 t_has
+      8688 t_hasnt
+      8706 t_hasnt_out
+      8718 t_out_has
+      8732 t_rc
+      8746 t_rc_not
+      8772 t_file
+      8784 t_nofile
+      8803 t_group
+      8812 t_ok
+      8814 t_fail
+      8819 t_skip
+      8824 t_detail
+      8832 cmd_selftest
+      9218 selftest_full
+      9261 st_core
+      9374 st_buttons
+      9519 st_corners
+      9546 st_theme
+      9720 st_icons
+      9793 st_font
+      9825 st_widget
+      9896 st_terminal
+      9925 st_newtab
+      9975 st_wall
+      10009 st_wallpapers
+      10051 st_keys
+      10095 st_panel
+      10141 st_app
+      10173 st_serve
+      10194 st_revert
+      10251 st_themes
+      10293 st_look
+      10369 st_tabby
+      10421 codium_tail_of
+      10426 st_codium
+      10552 st_profile
+      10627 st_refresh
+      10675 st_tune
+      10756 st_report
+      10810 st_overview
+      10847 st_presets
+      10884 st_help
+      10943 usage
+      11005 help_settings
+      11078 cmd_help

@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.6"
+VERSION="1.7"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -646,6 +646,30 @@ codium_block() {
 
 # Что уже включено. Части накапливаются, порядок фиксирован, чтобы блок
 # не перетасовывался при каждом запуске.
+# Что включено на самом деле — по содержимому нашего блока, а не по
+# памяти скрипта. Состояние появилось позже самой команды: у тех, кто
+# настроил редактор раньше, оно пустое, и накопление по нему стирало
+# уже поставленное. Файл знает правду всегда.
+codium_parts_current() {
+    [ -f "$CODIUM_SETTINGS" ] || return 0
+    grep -qF "$CODIUM_MARK_BEGIN" "$CODIUM_SETTINGS" 2>/dev/null || return 0
+
+    local inside out=""
+    inside=$(awk -v a="$CODIUM_MARK_BEGIN" -v b="$CODIUM_MARK_END" '
+        index($0, a) { on = 1; next }
+        index($0, b) { on = 0 }
+        on { print }
+    ' "$CODIUM_SETTINGS")
+
+    case "$inside" in
+        *'"*.txt": "plaintext"'*) out="$out txt" ;;
+    esac
+    case "$inside" in
+        *'"window.customMenuBarAltFocus"'*) out="$out alt" ;;
+    esac
+    printf '%s' "${out# }"
+}
+
 codium_parts_merge() {
     local have="$1"
     local add="$2"
@@ -808,7 +832,7 @@ cmd_codium() {
     # Части накапливаются: поставил .txt вчера, Alt сегодня — работает
     # и то и другое. Иначе второй флаг молча снимал бы первый.
     local parts
-    parts=$(codium_parts_merge "$(state_get CODIUM_PARTS)" "$want")
+    parts=$(codium_parts_merge "$(codium_parts_current)" "$want")
 
     head1 "редактор VSCodium"
 
@@ -10474,6 +10498,17 @@ st_codium() {
     o=$(tr -cd '{' < "$st" | wc -c)
     c=$(tr -cd '}' < "$st" | wc -c)
     t_eq "скобки сошлись с двумя частями" "$o" "$c"
+
+    # Настройка могла быть сделана версией, которая ещё не вела состояние.
+    # Тогда включённое видно только в самом файле — и второй флаг обязан
+    # его сохранить, а не пересобрать блок из одной своей части.
+    printf '{\n    "editor.fontSize": 13\n}\n' > "$st"
+    sandbox_run codium --txt
+    rm -f "$SB/.local/state/desktop-kit/state.env"
+    sandbox_run codium --alt
+    t_has "без состояния текст уцелел" "$st" '"*.txt": "plaintext"'
+    t_has "без состояния рамки остались снятыми" "$st" "unicodeHighlight.nonBasicASCII"
+    t_has "без состояния Alt добавился" "$st" '"window.customMenuBarAltFocus": false'
 
     # --alt в одиночку не должен трогать привязку типа файла
     printf '{\n    "editor.fontSize": 13\n}\n' > "$st"
