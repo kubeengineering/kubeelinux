@@ -139,6 +139,7 @@ design icons Nordzy-dark             # примерить
 | [install-ubuntu.md](docs/install-ubuntu.md) | поставить саму Ubuntu: флешка, BIOS, разметка, типичные грабли |
 | [bootstrap.md](docs/bootstrap.md) | развернуть всё с нуля одним скриптом, что именно он делает |
 | [commands.md](docs/commands.md) | подробно по каждой команде, профили, откат |
+| [keys.md](docs/keys.md) | **каждый ключ по отдельности** — что делает, как выглядит, где подвох |
 | [banks.md](docs/banks.md) | банки тем и значков, как устроена установка |
 | [how-it-works.md](docs/how-it-works.md) | устройство: блоки в CSS, Wayland или Xorg, как допиливать |
 | [gtk-theming.md](docs/gtk-theming.md) | почему libadwaita игнорирует темы и что с этим делать |
