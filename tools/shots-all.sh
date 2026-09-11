@@ -42,6 +42,8 @@ panel-transparent|panel --transparent|clean|
 panel-full|panel --full|clean|
 terminal-opacity|terminal --opacity 45|terminal|terminal
 wall-random|wall --random|clean|
+newtab-chrome|newtab --clock 110 --tile 130|chrome|google-chrome
+newtab-tile|newtab --clock 150 --tile 180|chrome|google-chrome
 '
 
 # Стенд сначала привести в чувство: без этого apport лезет диалогами

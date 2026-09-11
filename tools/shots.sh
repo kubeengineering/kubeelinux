@@ -67,9 +67,10 @@ esc() {
     sleep 1
 }
 
-# Дождаться окна: приложения стартуют медленнее, чем возвращается ssh,
-# а conky после правки конфига перезапускается и пропадает на пару секунд.
-# Без ожидания в кадр попадает пустой рабочий стол.
+# Дождаться, пока приложение поднимется: ssh возвращается раньше, чем
+# появляется окно, а conky после правки конфига перезапускается и на
+# пару секунд пропадает вовсе. Без ожидания в кадр попадает пустой стол.
+#
 # Ждём ПРОЦЕСС, а не окно. Окна проверять нечем: сессия гостя — Wayland
 # с XWayland, и wmctrl видит только старые X-окна. Nautilus на GTK4
 # рисуется нативно, в списке не появляется никогда, и проверка по окну
@@ -101,6 +102,19 @@ scene() {
             $SSH "$HOST" "$GUI pkill -f gnome-terminal-server 2>/dev/null; sleep 2; \
                 setsid gnome-terminal >/dev/null 2>&1 </dev/null &" >/dev/null 2>&1
             wait_window terminal
+            ;;
+        chrome)
+            # --password-store=basic, иначе Chrome лезет в связку ключей,
+            # а при автологине она заперта — и поверх страницы встаёт
+            # модальное окно «Требуется аутентификация» от самой оболочки.
+            $SSH "$HOST" "$GUI pkill -f google-chrome 2>/dev/null; sleep 3;                 setsid google-chrome --no-first-run --no-default-browser-check                     --password-store=basic --start-maximized                     file://\$HOME/.local/share/newtab/index.html                     >/dev/null 2>&1 </dev/null &" >/dev/null 2>&1
+            wait_window google-chrome
+            sleep 12
+            # Страница лежит в file://, и Chrome отдаёт её из кэша — после
+            # пересборки на экране остаётся прежний вид. Жёсткая перезагрузка
+            # идёт скан-кодами: клавиатура ВМ доходит туда, куда xdotool нет.
+            vbox controlvm "$VM" keyboardputscancode 1d 2a 13 93 aa 9d >/dev/null 2>&1
+            sleep 6
             ;;
         clean)
             $SSH "$HOST" "$GUI pkill nautilus 2>/dev/null; \
@@ -134,6 +148,15 @@ prepare() {
         sudo rm -f /var/crash/* 2>/dev/null; \
         sed -i 's/^[[:space:]]*update_interval[[:space:]]*=.*/    update_interval = 5,/' \
             ~/.config/conky/main.conf 2>/dev/null; true" >/dev/null 2>&1
+
+    # Chrome нужен ровно для кадров страницы новой вкладки. Ставится один
+    # раз, 140 МБ; Firefox из Ubuntu для этого не годится — он снап и не
+    # видит файл авторизации X, а нативным Wayland-клиентом рисуется мимо
+    # XWayland, из-за чего кадр VirtualBox остаётся старым.
+    if ! $SSH "$HOST" "which google-chrome >/dev/null 2>&1"; then
+        say "ставлю Chrome (нужен для страницы новой вкладки)"
+        $SSH "$HOST" "wget -q -O /tmp/chrome.deb             https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&             sudo apt-get install -y /tmp/chrome.deb" >/dev/null 2>&1
+    fi
 
     local have
     have=$($SSH "$HOST" "which wmctrl xdotool xrefresh 2>/dev/null | wc -l" 2>/dev/null)
