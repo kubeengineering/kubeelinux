@@ -430,10 +430,10 @@ if [ "$WANT_LOOK" = "1" ] && [ -f "$KIT" ]; then
     # Редактор мы поставили сами, значит и настроить его — наша забота:
     # иначе .txt открывается не в нём и раскрашивается как код.
     if command -v codium >/dev/null; then
-        if bash "$KIT" --yes codium --txt >>"$LOG" 2>&1; then
-            ok "VSCodium: .txt как простой текст и открытие по двойному клику"
+        if bash "$KIT" --yes codium --all >>"$LOG" 2>&1; then
+            ok "VSCodium: текст без рамок, .txt по двойному клику, Alt не лезет в меню"
         else
-            wr "настройки редактора не встали — потом: design codium --txt"
+            wr "настройки редактора не встали — потом: design codium --all"
         fi
     fi
 fi

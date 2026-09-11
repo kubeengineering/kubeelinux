@@ -35,11 +35,11 @@
 
 set -uo pipefail
 
-VERSION="1.5"
+VERSION="1.6"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
-VERSION_DATE="10.09.2026"
+VERSION_DATE="11.09.2026"
 SELF=$(readlink -f "$0")
 
 # --------------------------------------------------------------- пути
@@ -506,7 +506,7 @@ cmd_tabby() {
 # =====================================================================
 #
 # Редактор ставится в раскатке, а настраивался руками после каждой
-# переустановки. Здесь ровно две вещи, которые приходилось повторять.
+# переустановки. Здесь то, что приходилось повторять.
 #
 # ПОДСВЕТКА .txt. Простыни распознанного текста и логи стендов редактор
 # норовит раскрасить: сам угадывает язык, а поверх заливает серыми
@@ -516,6 +516,11 @@ cmd_tabby() {
 # ЧЕМ ОТКРЫВАТЬ .txt. Ярлык в системе есть, а привязки типа файла нет:
 # двойной клик в файловом менеджере открывает не редактор. Ставится
 # через xdg-mime — это запись в ~/.config/mimeapps.list, не системная.
+#
+# ALT В СТРОКЕ МЕНЮ. У кого раскладка переключается на Alt+Shift, каждое
+# переключение языка уводит фокус в File/Edit/Selection: Alt в Electron
+# активирует меню. Выглядит как залипшая клавиша, лечится повторным Alt.
+# Гасится двумя ключами окна; сама строка меню остаётся на месте.
 #
 # Файл настроек личный, поэтому правим его как gtk.css — своим блоком
 # с маркерами. settings.json у VS Code и VSCodium это JSONC, комментарии
@@ -535,7 +540,9 @@ help_codium() {
 codium — редактор VSCodium
 
   desktop-kit codium              что сейчас настроено
+  desktop-kit codium --all        всё сразу: и текст, и Alt
   desktop-kit codium --txt        .txt как простой текст + открывать в нём
+  desktop-kit codium --alt        Alt не уводит фокус в строку меню
   desktop-kit codium --revert     снять наш блок и вернуть прежнюю привязку
 
   Что делает --txt:
@@ -546,24 +553,26 @@ codium — редактор VSCodium
       подсветка, цветные скобки и линейки отступов
     · VSCodium становится приложением по умолчанию для text/plain
 
-  Чужие строки в settings.json не трогаются: наш блок кладётся отдельно
-  и снимается целиком. Перед правкой делается резервная копия.
+  Что делает --alt:
+    · Alt перестаёт перекидывать курсор в File/Edit/Selection — тем, у
+      кого раскладка на Alt+Shift, это мешало при каждой смене языка
+    · заодно гасятся мнемоники вида Alt+Ф
+    · строка меню остаётся видимой, мышью открывается как прежде
+
+  Флаги накапливаются: поставил одно, потом другое — работает и то и
+  другое. Чужие строки в settings.json не трогаются, наш блок кладётся
+  отдельно и снимается целиком. Перед правкой делается резервная копия.
 
   Прозрачность окна редактора — отдельная команда:
     desktop-kit app codium --opacity 95
 EOF
 }
 
-# Наш блок настроек. Запятая на конце нужна, только если ниже есть
-# другие ключи, иначе JSON станет невалидным.
-codium_block() {
-    local comma="$1"
-    local tail="}"
-    if [ "$comma" = "1" ]; then
-        tail="},"
-    fi
-    cat <<EOF
-    $CODIUM_MARK_BEGIN
+# Блок собирается из частей: включённое накапливается, поэтому команда
+# с одним флагом не выключает то, что поставили другим. Каждая часть
+# печатается с запятой на конце — лишняя убирается при сборке.
+codium_part_txt() {
+    cat <<'EOF'
     // Русские слова больше не обводятся рамками. Редактор ищет символы,
     // которых можно не заметить или спутать с латиницей, и обводит их —
     // для кода это защита от подделок, для русского текста беда: рамка
@@ -589,9 +598,65 @@ codium_block() {
         "editor.bracketPairColorization.enabled": false,
         "editor.guides.indentation": false,
         "editor.wordBasedSuggestions": "off"
-    $tail
-    $CODIUM_MARK_END
+    },
 EOF
+}
+
+codium_part_alt() {
+    cat <<'EOF'
+    // Alt больше не уводит фокус в строку меню. Для тех, у кого язык
+    // переключается на Alt+Shift, это выглядело как залипшая клавиша:
+    // после смены раскладки курсор оказывался в File/Edit/Selection, и
+    // помогал только повторный Alt. Строка меню остаётся на месте,
+    // мышью открывается как прежде; уходят только мнемоники Alt+Ф.
+    "window.customMenuBarAltFocus": false,
+    "window.enableMenuBarMnemonics": false,
+EOF
+}
+
+# Собрать блок из перечисленных частей. Запятая на конце нужна, только
+# если ниже в файле есть другие ключи, иначе JSON станет невалидным.
+codium_block() {
+    local parts="$1"
+    local comma="$2"
+    local body=""
+    local p
+
+    for p in $parts; do
+        case "$p" in
+            txt) body="$body$(codium_part_txt)
+" ;;
+            alt) body="$body$(codium_part_alt)
+" ;;
+        esac
+    done
+
+    # Последняя строка тела — закрывающая скобка или значение. Запятую
+    # с неё снимаем, когда наш блок оказался последним в объекте.
+    if [ "$comma" = "1" ]; then
+        body=$(printf '%s' "$body")
+    else
+        body=$(printf '%s' "$body" | sed '$ s/,$//')
+    fi
+
+    printf '%s\n' "    $CODIUM_MARK_BEGIN"
+    printf '%s\n' "$body"
+    printf '%s\n' "    $CODIUM_MARK_END"
+}
+
+# Что уже включено. Части накапливаются, порядок фиксирован, чтобы блок
+# не перетасовывался при каждом запуске.
+codium_parts_merge() {
+    local have="$1"
+    local add="$2"
+    local out=""
+    local p
+    for p in txt alt; do
+        case " $have $add " in
+            *" $p "*) out="$out $p" ;;
+        esac
+    done
+    printf '%s' "${out# }"
 }
 
 # Убрать свой блок. Как и у Tabby, только awk с index(): маркер — это
@@ -611,6 +676,7 @@ codium_strip_block() {
 
 # Вставить блок сразу после открывающей скобки объекта.
 codium_settings_write() {
+    local parts="$1"
     mkdir -p "$(dirname "$CODIUM_SETTINGS")"
 
     # Файла может не быть вовсе: редактор создаёт его при первой правке
@@ -618,7 +684,7 @@ codium_settings_write() {
     if [ ! -s "$CODIUM_SETTINGS" ]; then
         {
             printf '{\n'
-            codium_block 0
+            codium_block "$parts" 0
             printf '}\n'
         } > "$CODIUM_SETTINGS"
         return 0
@@ -628,7 +694,7 @@ codium_settings_write() {
 
     local tmp
     tmp=$(mktemp)
-    awk -v block="$(codium_block 1)" -v block0="$(codium_block 0)" '
+    awk -v block="$(codium_block "$parts" 1)" -v block0="$(codium_block "$parts" 0)" '
         { lines[++n] = $0 }
         END {
             # Скобку ищем в коде, а не в комментарии: строка вида
@@ -695,9 +761,15 @@ codium_show() {
     note "настройки: $CODIUM_SETTINGS"
 
     if [ -f "$CODIUM_SETTINGS" ] && grep -qF "$CODIUM_MARK_BEGIN" "$CODIUM_SETTINGS"; then
-        ok "наш блок на месте: .txt открывается как простой текст"
+        ok "наш блок на месте"
+        if grep -qF '"*.txt": "plaintext"' "$CODIUM_SETTINGS"; then
+            note "  --txt: .txt как простой текст, без рамок вокруг русских слов"
+        fi
+        if grep -qF '"window.customMenuBarAltFocus"' "$CODIUM_SETTINGS"; then
+            note "  --alt: Alt не уводит фокус в строку меню"
+        fi
     else
-        note "нашего блока нет — поставить: $0 codium --txt"
+        note "нашего блока нет — поставить: $0 codium --all"
     fi
 
     local now
@@ -712,12 +784,15 @@ codium_show() {
 }
 
 cmd_codium() {
+    local want=""
     local txt=0
     local revert=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --txt)     txt=1; shift ;;
+            --txt)     want="$want txt"; txt=1; shift ;;
+            --alt)     want="$want alt"; shift ;;
+            --all)     want="$want txt alt"; txt=1; shift ;;
             --revert)  revert=1; shift ;;
             -h|--help) help_codium; return 0 ;;
             -*) die "codium: неизвестный параметр $1" ;;
@@ -725,10 +800,15 @@ cmd_codium() {
         esac
     done
 
-    if [ "$txt" = "0" ] && [ "$revert" = "0" ]; then
+    if [ -z "$want" ] && [ "$revert" = "0" ]; then
         codium_show
         return $?
     fi
+
+    # Части накапливаются: поставил .txt вчера, Alt сегодня — работает
+    # и то и другое. Иначе второй флаг молча снимал бы первый.
+    local parts
+    parts=$(codium_parts_merge "$(state_get CODIUM_PARTS)" "$want")
 
     head1 "редактор VSCodium"
 
@@ -743,6 +823,7 @@ cmd_codium() {
         else
             note "файла настроек нет — снимать нечего"
         fi
+        state_set CODIUM_PARTS ""
         local was
         was=$(recall CODIUM_TXT_HANDLER)
         if [ -n "$was" ]; then
@@ -752,7 +833,7 @@ cmd_codium() {
         return 0
     fi
 
-    if would "настроить .txt: простой текст и открытие в редакторе"; then
+    if would "настроить редактор: $parts"; then
         return 0
     fi
 
@@ -761,13 +842,20 @@ cmd_codium() {
         backup_once "$CODIUM_SETTINGS" "codium-settings.json"
     fi
 
-    if ! codium_settings_write; then
+    if ! codium_settings_write "$parts"; then
         bad "не разобрал settings.json — оставил как есть"
         note "чаще всего дело в незакрытой скобке; открой файл и проверь:"
         note "  $CODIUM_SETTINGS"
         return 1
     fi
-    ok "*.txt открывается как простой текст, подсветка погашена"
+    state_set CODIUM_PARTS "$parts"
+
+    case " $parts " in
+        *" txt "*) ok "*.txt открывается как простой текст, рамок и подсветки нет" ;;
+    esac
+    case " $parts " in
+        *" alt "*) ok "Alt не уводит фокус в строку меню — смена раскладки не мешает" ;;
+    esac
 
     # Наш блок стоит первым, а в JSON при одинаковых ключах побеждает
     # последний. Молчать об этом нельзя: человек решит, что не сработало.
@@ -775,7 +863,9 @@ cmd_codium() {
     dup=$(awk -v a="$CODIUM_MARK_BEGIN" -v b="$CODIUM_MARK_END" '
         index($0, a) { skip = 1 }
         !skip && (index($0, "\"files.associations\"") || index($0, "\"[plaintext]\"") \
-                  || index($0, "\"editor.unicodeHighlight")) { print }
+                  || index($0, "\"editor.unicodeHighlight") \
+                  || index($0, "\"window.customMenuBarAltFocus\"") \
+                  || index($0, "\"window.enableMenuBarMnemonics\"")) { print }
         index($0, b) { skip = 0 }
     ' "$CODIUM_SETTINGS")
     if [ -n "$dup" ]; then
@@ -783,10 +873,27 @@ cmd_codium() {
         note "ниже в файле есть свои такие же ключи — они сильнее наших:"
         printf '%s
 ' "$dup" | sed 's/^/      /' | dump
-        note "убери их, если подсветка так и останется"
+        note "убери их, если поведение так и не изменится"
+    fi
+
+    # Родной заголовок окна рисует не редактор, и ключи окна тогда молчат.
+    if grep -q '"window.titleBarStyle"[[:space:]]*:[[:space:]]*"native"' \
+         "$CODIUM_SETTINGS" 2>/dev/null; then
+        case " $parts " in
+            *" alt "*)
+                blank
+                note "у тебя window.titleBarStyle = native — строку меню рисует система"
+                note "ключи про Alt работают только при заголовке редактора (custom)"
+                ;;
+        esac
     fi
 
     # --- чем открывать .txt -------------------------------------------
+    case " $parts " in
+        *" txt "*) : ;;
+        *) blank; note "снять: $0 codium --revert"; return 0 ;;
+    esac
+
     local desk
     desk=$(codium_desktop)
     if [ -z "$desk" ]; then
@@ -10351,6 +10458,31 @@ st_codium() {
     local n
     n=$(grep -c "dk:codium-begin" "$st")
     t_eq "после повтора блок один" "1" "$n"
+
+    # --- Alt в строке меню --------------------------------------------
+    # Флаги накапливаются: --alt не имеет права снести то, что поставил
+    # --txt, иначе человек чинит одно и ломает другое.
+    printf '{\n    "editor.fontSize": 13\n}\n' > "$st"
+    sandbox_run codium --txt
+    sandbox_run codium --alt
+    t_rc "второй флаг применён" 0
+    t_has "Alt больше не фокусирует меню" "$st" '"window.customMenuBarAltFocus": false'
+    t_has "мнемоники сняты" "$st" '"window.enableMenuBarMnemonics": false'
+    t_has "настройки текста на месте" "$st" '"*.txt": "plaintext"'
+    n=$(grep -c "dk:codium-begin" "$st")
+    t_eq "блок по-прежнему один" "1" "$n"
+    o=$(tr -cd '{' < "$st" | wc -c)
+    c=$(tr -cd '}' < "$st" | wc -c)
+    t_eq "скобки сошлись с двумя частями" "$o" "$c"
+
+    # --alt в одиночку не должен трогать привязку типа файла
+    printf '{\n    "editor.fontSize": 13\n}\n' > "$st"
+    rm -f "$SB/.local/state/desktop-kit/state.env"
+    rm -f "$SB_STORE/mime-text_plain.txt"
+    sandbox_run codium --alt
+    t_has "только Alt: ключ окна есть" "$st" '"window.customMenuBarAltFocus": false'
+    t_hasnt "только Alt: настроек текста нет" "$st" '"*.txt": "plaintext"'
+    t_nofile "только Alt: тип файла не переназначен" "$SB_STORE/mime-text_plain.txt"
 
     # Комментарий над скобкой: и сам он должен уцелеть, и открывающей
     # скобкой считаться не должен — иначе блок ляжет внутрь комментария.

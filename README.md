@@ -90,7 +90,7 @@ wget https://raw.githubusercontent.com/kubeengineering/kubeelinux/main/bootstrap
 | `widget` | виджет conky: создание, скругление, цвет, погода |
 | `terminal` | GNOME Terminal: прозрачность, шрифт, палитра pywal |
 | `tabby` | стеклянный Tabby: плотность фона терминала |
-| `codium` | VSCodium: .txt как простой текст и открытие по двойному клику |
+| `codium` | VSCodium: текст без рамок, `.txt` по двойному клику, Alt не лезет в меню |
 | `panel` | панель задач Dash to Panel: прозрачность, высота, плавающая |
 | `newtab` | страница новой вкладки Chrome и её ярлыки |
 | `wallpapers` / `wall` | банк обоев: пополнение, расписание, смена |
