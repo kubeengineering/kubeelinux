@@ -18,7 +18,7 @@
 
 set -uo pipefail
 
-REPO_RAW="https://raw.githubusercontent.com/kubeengineering/ubuntu-desktop-kit/main"
+REPO_RAW="https://raw.githubusercontent.com/kubeengineering/kubeelinux/main"
 KIT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/desktop-kit"
 KIT="$KIT_DIR/desktop-kit.sh"
 STAMP="$KIT_DIR/last-check"

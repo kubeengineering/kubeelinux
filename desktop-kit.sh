@@ -35,11 +35,11 @@
 
 set -uo pipefail
 
-VERSION="1.7"
+VERSION="1.8"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
-VERSION_DATE="11.09.2026"
+VERSION_DATE="12.09.2026"
 SELF=$(readlink -f "$0")
 
 # --------------------------------------------------------------- пути
@@ -85,6 +85,7 @@ SYS_ICONS="${DK_SYS_ICONS:-/usr/share/icons}"
 SYS_APPS="${DK_SYS_APPS:-/usr/share/applications}"
 
 FLUENT_ICONS="https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/master/src/symbolic/actions"
+REPO_RAW="https://raw.githubusercontent.com/kubeengineering/kubeelinux/main"
 WALLHAVEN="https://wallhaven.cc/api/v1/search"
 
 # --------------------------------------------------------------- вывод
@@ -6248,10 +6249,21 @@ wallpapers — банк обоев
   desktop-kit wallpapers --timer off    снять расписание
   desktop-kit wallpapers --prune 900    оставить 900 самых свежих
   desktop-kit wallpapers --urls         показать, какие запросы уйдут
+  desktop-kit wallpapers --export       записать список банка для репозитория
+  desktop-kit wallpapers --sync         донести банк по списку из репозитория
 
   Качает рисованное под родное разрешение монитора. Набор тем и seed
   привязаны к номеру недели: внутри недели выдача повторяется, следующая
   неделя приносит другое.
+
+  ОДИНАКОВЫЙ БАНК НА ВСЕХ МАШИНАХ. Картинки в гит не кладутся — это два
+  гигабайта двоичных файлов, которые останутся в истории навсегда. Вместо
+  них туда едет список имён: у wallhaven имя файла однозначно задаёт
+  ссылку, так что каждая машина доносит картинки сама.
+
+    на машине с полным банком:  desktop-kit wallpapers --export
+    закоммитить walls/manifest.txt и запушить
+    на остальных машинах:       desktop-kit wallpapers --sync
 
   Расписание ставит копию скрипта в ~/bin и ссылается туда, поэтому
   скачанный файл можно потом удалить. День будний не случайно: рабочий
@@ -6277,8 +6289,158 @@ wallpaper_urls() {
     done
 }
 
+# =====================================================================
+#  Список банка: одинаковые обои на всех машинах
+# =====================================================================
+#
+# Задача простая на словах: на рабочем ноутбуке, домашнем ПК и ноуте для
+# монтажа должен быть ОДИН И ТОТ ЖЕ банк — экраны попадают в кадр видео,
+# и разнобой там заметен.
+#
+# Очевидное решение — положить картинки в репозиторий — не годится: две
+# тысячи мегабайт двоичных файлов раздувают историю навсегда, и каждый
+# клон тянет их целиком. GitHub такое терпит, но припоминает.
+#
+# Здесь используется свойство самого wallhaven: имя файла однозначно
+# задаёт ссылку. Из `wallhaven-l3jvmp.jpg` получается
+# `https://w.wallhaven.cc/full/l3/wallhaven-l3jvmp.jpg` — первые два
+# символа идентификатора становятся каталогом. Значит в гит достаточно
+# положить СПИСОК ИМЁН: 685 строк вместо двух гигабайт, а картинки
+# каждая машина доносит сама.
+#
+# Чего это стоит: если wallhaven однажды удалит картинку, ссылка умрёт.
+# На машинах, где файл уже скачан, он останется; синхронизация просто
+# скажет, сколько строк не отдалось.
+
+WALLS_MANIFEST_DEFAULT="$(dirname "$SELF")/walls/manifest.txt"
+WALLS_MANIFEST_URL="$REPO_RAW/walls/manifest.txt"
+
+# Имя файла -> прямая ссылка. Не годится для картинок, попавших в банк
+# не с wallhaven: их имена ничего не кодируют, и они просто пропускаются.
+wall_url_of() {
+    local name="$1"
+    case "$name" in
+        wallhaven-*) : ;;
+        *) return 1 ;;
+    esac
+    local id="${name#wallhaven-}"
+    id="${id%.*}"
+    printf 'https://w.wallhaven.cc/full/%s/%s' "${id:0:2}" "$name"
+}
+
+walls_export() {
+    local out="$1"
+    local dir="$2"
+
+    if [ ! -d "$dir" ]; then
+        bad "банка нет: $dir"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "$out")"
+    local tmp
+    tmp=$(mktemp)
+
+    local n=0
+    local skipped=0
+    local f base
+    for f in "$dir"/*; do
+        [ -f "$f" ] || continue
+        base=$(basename "$f")
+        case "$base" in
+            wallhaven-*.jpg|wallhaven-*.png)
+                printf '%s\n' "$base" >> "$tmp"
+                n=$((n + 1))
+                ;;
+            *) skipped=$((skipped + 1)) ;;
+        esac
+    done
+
+    sort -u "$tmp" > "$out"
+    rm -f "$tmp"
+
+    ok "в списке: $n имён"
+    if [ "$skipped" -gt 0 ]; then
+        note "пропущено не с wallhaven: $skipped (ссылку по имени не собрать)"
+    fi
+    note "файл: $out"
+    blank
+    note "дальше: закоммитить и запушить, на других машинах — wallpapers --sync"
+    return 0
+}
+
+walls_sync() {
+    local src="$1"
+    local dir="$2"
+
+    require_tools curl
+
+    local list
+    list=$(mktemp)
+
+    if [ -n "$src" ] && [ -f "$src" ]; then
+        cp "$src" "$list"
+        note "список: $src"
+    elif [ -f "$WALLS_MANIFEST_DEFAULT" ]; then
+        cp "$WALLS_MANIFEST_DEFAULT" "$list"
+        note "список: $WALLS_MANIFEST_DEFAULT"
+    else
+        # Списка рядом нет — значит скрипт скачан отдельно от репозитория
+        note "список: $WALLS_MANIFEST_URL"
+        if ! curl -fsSL --max-time 60 "$WALLS_MANIFEST_URL" -o "$list"; then
+            rm -f "$list"
+            bad "список не скачался — нет сети или файла ещё нет в репозитории"
+            return 1
+        fi
+    fi
+
+    local total
+    total=$(grep -c . "$list" 2>/dev/null || echo 0)
+    if [ "$total" = "0" ]; then
+        rm -f "$list"
+        bad "список пуст"
+        return 1
+    fi
+
+    mkdir -p "$dir"
+    disk_room_warn "$dir" 2000
+
+    local have=0 got=0 lost=0
+    local name url
+    while read -r name; do
+        [ -n "$name" ] || continue
+        if [ -f "$dir/$name" ]; then
+            have=$((have + 1))
+            continue
+        fi
+        url=$(wall_url_of "$name") || continue
+        if curl -fsSL --max-time 90 --retry 2 --retry-delay 2 "$url" -o "$dir/$name" 2>/dev/null; then
+            # Битая загрузка выглядит как файл нормального имени и нулевого
+            # смысла: страница ошибки весит пару килобайт.
+            if [ "$(stat -c%s "$dir/$name" 2>/dev/null || echo 0)" -lt 50000 ]; then
+                rm -f "$dir/$name"
+                lost=$((lost + 1))
+            else
+                got=$((got + 1))
+            fi
+        else
+            rm -f "$dir/$name" 2>/dev/null
+            lost=$((lost + 1))
+        fi
+    done < "$list"
+    rm -f "$list"
+
+    ok "скачано: $got, уже было: $have"
+    if [ "$lost" -gt 0 ]; then
+        note "не отдалось: $lost — картинку могли удалить с wallhaven"
+    fi
+    note "банк: $dir"
+    return 0
+}
+
 cmd_wallpapers() {
     local count=10
+    local manifest=""
     action="add"
     local day=""
     local at=""
@@ -6299,6 +6461,8 @@ cmd_wallpapers() {
                 ;;
             --prune)  need_args "--prune" 2 "$#"; action="prune"; keep="$2"; shift 2 ;;
             --urls)   action="urls"; shift ;;
+            --export) action="export"; manifest="${2:-}"; [ -n "$manifest" ] && shift; shift ;;
+            --sync)   action="sync"; manifest="${2:-}"; [ -n "$manifest" ] && shift; shift ;;
             -h|--help) help_wallpapers; return 0 ;;
             *) die "wallpapers: неизвестный параметр $1" ;;
         esac
@@ -6307,6 +6471,16 @@ cmd_wallpapers() {
     walldir=$(find_wallpaper_dir)
 
     case "$action" in
+        export)
+            head1 "список банка"
+            walls_export "${manifest:-$WALLS_MANIFEST_DEFAULT}" "$walldir"
+            return $?
+            ;;
+        sync)
+            head1 "банк по списку"
+            walls_sync "$manifest" "$walldir"
+            return $?
+            ;;
         status)
             head1 "банк обоев"
             if [ -d "$walldir" ]; then
@@ -10010,8 +10184,29 @@ st_wallpapers() {
     t_group "wallpapers: банк картинок"
     sandbox_new
 
+    # --- список банка ---------------------------------------------
+    # Ссылка собирается из имени: первые два символа идентификатора —
+    # это каталог на wallhaven. Ошибка здесь тихая: файлы просто не
+    # скачаются, а причина будет не видна.
+    t_eq "ссылка собрана из имени"         "https://w.wallhaven.cc/full/l3/wallhaven-l3jvmp.jpg"         "$(wall_url_of wallhaven-l3jvmp.jpg)"
+    t_eq "png тоже понимается"         "https://w.wallhaven.cc/full/po/wallhaven-pow9jm.png"         "$(wall_url_of wallhaven-pow9jm.png)"
+    if wall_url_of "моя-картинка.jpg" >/dev/null 2>&1; then
+        t_fail "чужое имя принято за wallhaven"
+    else
+        t_ok "чужое имя отвергнуто: ссылку из него не собрать"
+    fi
+
+    local mf="$SB/manifest.txt"
+    : > "$SB/Pictures/wallpapers/wallhaven-aaaaaa.jpg"
+    : > "$SB/Pictures/wallpapers/моя-картинка.jpg"
+    sandbox_run wallpapers --export "$mf"
+    t_rc "список записан" 0
+    t_has "имя wallhaven в списке" "$mf" "wallhaven-aaaaaa.jpg"
+    t_hasnt "чужое имя в список не попало" "$mf" "моя-картинка.jpg"
+
+
     if ! have jq; then
-        t_skip "wallpapers: нет jq"
+        t_skip "wallpapers: докачка без jq не проверяется"
         sandbox_drop
         return 0
     fi
