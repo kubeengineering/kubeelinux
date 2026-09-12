@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.10"
+VERSION="1.11"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6457,9 +6457,17 @@ walls_export() {
     if [ -d "$repo/.git" ]; then
         walls_publish "$out"
     else
-        note "клона репозитория рядом не нашлось — список лежит здесь:"
+        # Скрипт чаще всего скачан запускалкой, и репозитория на машине
+        # нет вовсе. Совет «перенеси файл» тут бесполезен: непонятно куда
+        # и чем. Даём команду, после которой экспорт заработает сам.
+        note "клона репозитория на этой машине нет — список лежит здесь:"
         note "  $out"
-        note "перенеси его в kubeelinux/walls/manifest.txt и запушь"
+        blank
+        note "чтобы дальше всё уезжало само, склонируй репозиторий один раз:"
+        dump <<EOF
+      git clone https://github.com/kubeengineering/kubeelinux.git ~/kubeelinux
+EOF
+        note "и повтори: $0 wallpapers --export"
     fi
     blank
     note "на других машинах потом: $0 wallpapers --sync"
