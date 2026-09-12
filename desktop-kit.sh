@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.8"
+VERSION="1.9"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6395,7 +6395,7 @@ walls_export() {
     if [ -d "$repo/.git" ]; then
         note "дальше одной строкой:"
         dump <<EOF
-      cd $repo && git add walls/manifest.txt &&         git commit -m "walls: банк с этой машины" && git push
+      cd $repo && git add walls/manifest.txt && git commit -m "walls: банк с этой машины" && git push
 EOF
     else
         note "клона репозитория рядом не нашлось — список лежит здесь:"
