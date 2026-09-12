@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.9"
+VERSION="1.10"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6338,14 +6338,76 @@ walls_manifest_dest() {
 
     local d
     for d in "$here" "$HOME/ubuntu-desktop-kit" "$HOME/kubeelinux" \
-             "$HOME/code/kubeelinux" "$HOME/git/kubeelinux"; do
+             "$HOME/code/kubeelinux" "$HOME/git/kubeelinux" \
+             "$HOME/work/git/kubeelinux" "$HOME/work/git/ubuntu-desktop-kit"; do
         if [ -d "$d/.git" ]; then
             printf '%s/walls/manifest.txt' "$d"
             return 0
         fi
     done
 
+    # Списка известных путей не хватило — ищем клон по origin. Каталоги
+    # у всех разные, а вот адрес репозитория один; четырёх уровней от
+    # домашней папки хватает и поиск остаётся быстрым.
+    local found
+    found=$(find "$HOME" -maxdepth 4 -type d -name .git 2>/dev/null | while read -r g; do
+        if git --git-dir="$g" config --get remote.origin.url 2>/dev/null \
+           | grep -qiE 'kubeelinux|ubuntu-desktop-kit'; then
+            dirname "$g"
+            break
+        fi
+    done)
+    if [ -n "$found" ]; then
+        printf '%s/walls/manifest.txt' "$found"
+        return 0
+    fi
+
     printf '%s/walls-manifest.txt' "$HOME"
+    return 1
+}
+
+# Закоммитить и запушить список. Человеку не место в роли кнопки
+# подтверждения: он попросил «собери банк», а не «покажи мне команду,
+# которую надо скопировать». Молча делаем и говорим, что получилось.
+walls_publish() {
+    local out="$1"
+    local repo
+    repo=$(dirname "$(dirname "$out")")
+
+    [ -d "$repo/.git" ] || return 1
+    have git || return 1
+
+    # Одного `git diff` мало: он сравнивает рабочее дерево с индексом, и
+    # для уже добавленного файла молчит, будто менять нечего. porcelain
+    # видит и то и другое разом.
+    if [ -z "$(git -C "$repo" status --porcelain -- walls/manifest.txt 2>/dev/null)" ]; then
+        note "список не изменился — пушить нечего"
+        return 0
+    fi
+
+    if ! git -C "$repo" add walls/manifest.txt 2>/dev/null; then
+        return 1
+    fi
+
+    local err
+    err=$(git -C "$repo" commit -q -m "walls: банк с $(hostname -s 2>/dev/null || echo машины)" 2>&1)
+    if [ $? != 0 ]; then
+        bad "не смог закоммитить"
+        # Чаще всего это ненастроенный git на свежей машине — сообщение
+        # git об этом длинное, покажем его как есть, оно по делу.
+        printf '%s\n' "$err" | head -6 | sed 's/^/      /' | dump
+        return 1
+    fi
+    if git -C "$repo" push -q 2>/dev/null; then
+        ok "список закоммичен и запушен"
+        return 0
+    fi
+
+    bad "закоммитил, но запушить не вышло"
+    note "похоже, нет доступа к гиту с этой машины — допушить потом:"
+    dump <<EOF
+      cd $repo && git push
+EOF
     return 1
 }
 
@@ -6387,16 +6449,13 @@ walls_export() {
     note "файл: $out"
     blank
 
-    # Дальше человеку нужно закоммитить — покажем команду целиком, с
-    # настоящими путями. Совет «закоммитьте файл» без пути стоит ровно
-    # столько же, сколько его отсутствие.
+    # Нашли клон — сами коммитим и пушим. Печатать команду и ждать, что
+    # человек её скопирует, оказалось ровно тем же, что не сделать
+    # ничего: «экспорт прожал», а в репозитории пусто.
     local repo
     repo=$(dirname "$(dirname "$out")")
     if [ -d "$repo/.git" ]; then
-        note "дальше одной строкой:"
-        dump <<EOF
-      cd $repo && git add walls/manifest.txt && git commit -m "walls: банк с этой машины" && git push
-EOF
+        walls_publish "$out"
     else
         note "клона репозитория рядом не нашлось — список лежит здесь:"
         note "  $out"
