@@ -6328,6 +6328,27 @@ wall_url_of() {
     printf 'https://w.wallhaven.cc/full/%s/%s' "${id:0:2}" "$name"
 }
 
+# Куда класть список. Скрипт чаще всего скачан запускалкой и лежит в
+# ~/.local/share/desktop-kit — то есть рядом с ним никакого репозитория
+# нет, и файл, записанный «рядом», человек потом ищет руками. Поэтому
+# клон ищется явно, а если его нет — говорим об этом прямо.
+walls_manifest_dest() {
+    local here
+    here=$(dirname "$SELF")
+
+    local d
+    for d in "$here" "$HOME/ubuntu-desktop-kit" "$HOME/kubeelinux" \
+             "$HOME/code/kubeelinux" "$HOME/git/kubeelinux"; do
+        if [ -d "$d/.git" ]; then
+            printf '%s/walls/manifest.txt' "$d"
+            return 0
+        fi
+    done
+
+    printf '%s/walls-manifest.txt' "$HOME"
+    return 1
+}
+
 walls_export() {
     local out="$1"
     local dir="$2"
@@ -6365,7 +6386,24 @@ walls_export() {
     fi
     note "файл: $out"
     blank
-    note "дальше: закоммитить и запушить, на других машинах — wallpapers --sync"
+
+    # Дальше человеку нужно закоммитить — покажем команду целиком, с
+    # настоящими путями. Совет «закоммитьте файл» без пути стоит ровно
+    # столько же, сколько его отсутствие.
+    local repo
+    repo=$(dirname "$(dirname "$out")")
+    if [ -d "$repo/.git" ]; then
+        note "дальше одной строкой:"
+        dump <<EOF
+      cd $repo && git add walls/manifest.txt &&         git commit -m "walls: банк с этой машины" && git push
+EOF
+    else
+        note "клона репозитория рядом не нашлось — список лежит здесь:"
+        note "  $out"
+        note "перенеси его в kubeelinux/walls/manifest.txt и запушь"
+    fi
+    blank
+    note "на других машинах потом: $0 wallpapers --sync"
     return 0
 }
 
@@ -6473,7 +6511,7 @@ cmd_wallpapers() {
     case "$action" in
         export)
             head1 "список банка"
-            walls_export "${manifest:-$WALLS_MANIFEST_DEFAULT}" "$walldir"
+            walls_export "${manifest:-$(walls_manifest_dest)}" "$walldir"
             return $?
             ;;
         sync)
