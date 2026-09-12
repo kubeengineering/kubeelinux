@@ -9,6 +9,7 @@
 #   design tune             мастер настройки
 #   design buttons thin     набор параметров
 #   design --update         только обновиться, ничего не запуская
+#   design --where          какой файл запускается и где лежит скрипт
 #   design --version        какая версия лежит локально
 #   design --offline ...    не ходить в сеть вообще
 #
@@ -138,8 +139,12 @@ update_kit() {
     if [ -f "$KIT" ]; then
         if cmp -s "$tmp" "$KIT"; then
             rm -f "$tmp"
+            # Запускалка обновлялась только вместе со скриптом, и если тот
+            # уже свежий — она оставалась прежней навсегда. Так и вышло:
+            # скрипт обновлён, а команда из него «неизвестный параметр»,
+            # потому что запускала её старая копия из другого каталога.
             if [ "$quiet" = "0" ]; then
-                say "версия уже свежая"
+                update_self || say "версия уже свежая"
             fi
             return 0
         fi
@@ -184,6 +189,32 @@ case "${1:-}" in
     --update)
         update_kit 0
         exit $?
+        ;;
+    --where)
+        # Диагностика «обновил, а не работает»: почти всегда оказывается,
+        # что запускается не тот файл, который обновляется.
+        say "запускалка: $0"
+        say "скрипт:     $KIT"
+        if [ -f "$KIT" ]; then
+            say "версия:     $(kit_version) от $(kit_version_date)"
+        else
+            warn "скрипта нет — запусти: $0 --update"
+        fi
+        say "репозиторий: $REPO_RAW"
+        # Чужие копии в PATH — вторая причина того же самого
+        others=$(command -v -a design 2>/dev/null | grep -v "^$0$" || true)
+        if [ -n "$others" ]; then
+            warn "в PATH есть и другие 'design' — запустится первый:"
+            printf '%s
+' "$others" | sed 's/^/          /'
+        fi
+        for f in "$HOME/ubuntu-desktop-kit/desktop-kit.sh"                  "$HOME/kubeelinux/desktop-kit.sh" "$HOME/bin/desktop-kit.sh"; do
+            if [ -f "$f" ] && [ "$f" != "$KIT" ]; then
+                warn "рядом лежит ещё один скрипт: $f"
+                warn "          версия $(grep -m1 '^VERSION=' "$f" | cut -d'"' -f2)"
+            fi
+        done
+        exit 0
         ;;
     --version)
         if [ -f "$KIT" ]; then
