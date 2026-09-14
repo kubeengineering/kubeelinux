@@ -5135,14 +5135,28 @@ cmd_font() {
         family=$(echo "$value" | sed 's/ [0-9]*$//')
         # Сравниваем с полем "семейство" из fc-list, а не ищем подстроку
         # где угодно в строке: иначе 'DejaV 11' сойдёт за существующий шрифт.
-        local want_family
+        local want_family families nl
         want_family=$(lower "$family")
-        if ! fc-list : family 2>/dev/null | tr ',' '
-'              | tr '[:upper:]' '[:lower:]' | grep -qxF -- "$want_family"; then
-            bad "шрифта '$family' в системе нет"
-            note "посмотреть доступные: $0 font --list"
-            return 1
-        fi
+        # Список семейств собираем в переменную и сверяем средствами самого
+        # bash, а не отдаём в `grep -q` через конвейер. С `set -o pipefail`
+        # grep -q закрывает трубу на первом же совпадении, пишущий tr получает
+        # SIGPIPE, и весь конвейер возвращает 141 — то есть «шрифта нет» ровно
+        # тогда, когда шрифт есть. Зависит от того, успеет tr дописать или нет,
+        # поэтому на одной машине работало, а на другой нет. Поймано на живой
+        # машине 14.09.2026: Cantarell был установлен, fc-list его показывал,
+        # а look падал на шаге со шрифтом.
+        families=$(fc-list : family 2>/dev/null | tr ',' '
+' | tr '[:upper:]' '[:lower:]')
+        nl='
+'
+        case "$nl$families$nl" in
+            *"$nl$want_family$nl"*) : ;;
+            *)
+                bad "шрифта '$family' в системе нет"
+                note "посмотреть доступные: $0 font --list"
+                return 1
+                ;;
+        esac
         remember "$(echo "$key" | tr 'a-z-' 'A-Z_')" "$(gi_get "$key")"
         gi_set "$key" "$value"
         ok "$key: $value"
@@ -5764,7 +5778,13 @@ cmd_terminal() {
     if [ -n "$font" ]; then
         local family
         family=$(echo "$font" | sed 's/ [0-9]*$//')
-        if ! fc-list 2>/dev/null | grep -qi "$family"; then
+        # Не `fc-list | grep -q`: под `set -o pipefail` grep -q закрывает
+        # трубу на первом совпадении, fc-list получает SIGPIPE и конвейер
+        # возвращает 141 — «шрифта нет» при установленном шрифте. То же
+        # самое ловилось в команде font, см. комментарий там.
+        local have_font
+        have_font=$(fc-list 2>/dev/null | grep -ic -- "$family" || true)
+        if [ "${have_font:-0}" -eq 0 ]; then
             bad "шрифта '$family' нет"
         else
             if would "шрифт терминала $font"; then
