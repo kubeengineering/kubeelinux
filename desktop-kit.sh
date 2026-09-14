@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.13"
+VERSION="1.14"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -971,7 +971,7 @@ look_table() {
 work|тёмный рабочий стол: стеклянная панель, виджет справа, прозрачный терминал|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons default|corners --radius 12|panel --float --opacity 10 --size 46|widget --init|widget --colour 1e1e2e --text ffffff --radius 12 --opacity 225|terminal --opacity 12
 night|то же, но темнее и строже: острые углы, глухая подложка|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons thin|corners --radius 0|panel --float --opacity 35 --size 42|widget --init|widget --colour 11111b --text cdd6f4 --radius 0 --opacity 255|terminal --opacity 6
 paper|светлый день: мягкие углы, светлый виджет, непрозрачный терминал|theme Graphite-Light --gtk4|icons Papirus-Light|buttons default|corners --radius 10|panel --float --opacity 12 --size 44|widget --init|widget --colour f2f2f2 --text 1e1e2e --radius 12 --opacity 235|terminal --opacity 0
-sage|рабочий эталон владельца: светлая Yaru-sage, крупные квадратные кнопки, прямые углы, парящая панель|theme Yaru-sage --light|icons Papirus-Dark-dk-glyphs|font "Cantarell 11"|font --mono "JetBrainsMono Nerd Font 11"|buttons --size 46 34 --icon 20 --gtk3-scale 1.0 --radius 0 --close #e81123|corners --radius 0|panel --float --opacity 15 --size 51|widget --init|widget --colour 1e1e2e --text ffffff --radius 0 --opacity 225|terminal --opacity 15|codium --all
+sage|рабочий эталон владельца: светлая Yaru-sage, крупные квадратные кнопки, прямые углы, парящая панель|theme Yaru-sage --light|icons Papirus-Dark-dk-glyphs|font "Cantarell 11"|font --mono "JetBrainsMono Nerd Font 11"|buttons --size 46 34 --icon 20 --gtk3-scale 1.0 --radius 0 --close #e81123|corners --radius 0|panel --float --opacity 10 --size 56 --length 65|widget --init|widget --colour 1e1e2e --text ffffff --radius 0 --opacity 225|terminal --opacity 15|codium --all
 EOF
 }
 
@@ -5197,6 +5197,9 @@ widget — виджет conky на рабочем столе
   --square       без скругления (то же, что --radius 0)
   --modules      список готовых блоков для виджета
   --init         создать виджет с нуля, если конфига conky ещё нет
+  --rebuild      пересобрать по свежему шаблону: цвет, плотность, радиус
+                 и добавленные блоки сохраняются, прежний конфиг — рядом
+                 файлом .before-rebuild
   --city ГОРОД   город для погоды (по умолчанию Moscow)
   --add ИМЯ      добавить блок в виджет: cpu mem disk net uptime load temp
 
@@ -5241,10 +5244,60 @@ weather_line_install() {
     cat > "$path" <<'WEOF'
 #!/bin/bash
 # Строка погоды для виджета conky. Город можно передать аргументом.
+#
+# Источник — Open-Meteo: ключ не нужен, отвечает из России. Раньше здесь
+# был wttr.in, но с домашней сети он не открывается вовсе: имя резолвится,
+# а соединение не устанавливается, curl отдаёт код 000 и ноль байт.
+# Виджет при этом показывал пустой раздел «ПОГОДА» и никак не жаловался —
+# поймано на живой машине 14.09.2026.
+#
+# Координаты города берём один раз и кешируем: геокодер отвечает заметно
+# медленнее прогноза, а город меняется раз в жизни.
 CITY="${1:-@CITY@}"
-curl -sf "https://wttr.in/$CITY?format=%t++%C&lang=ru" --max-time 5
-echo
-curl -sf "https://wttr.in/$CITY?format=Ветер+%w++Влажность+%h&lang=ru" --max-time 5
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/desktop-kit"
+mkdir -p "$CACHE"
+COORD="$CACHE/weather-coord-$(printf '%s' "$CITY" | tr -c 'A-Za-z0-9' '_')"
+
+if [ ! -s "$COORD" ]; then
+    curl -sf --max-time 10 --get --data-urlencode "name=$CITY" \
+        "https://geocoding-api.open-meteo.com/v1/search?count=1&language=ru" \
+        | jq -r 'if .results then "\(.results[0].latitude) \(.results[0].longitude)" else empty end' \
+        > "$COORD" 2>/dev/null
+fi
+read -r LAT LON < "$COORD" 2>/dev/null
+[ -z "${LAT:-}" ] && exit 0
+
+J=$(curl -sf --max-time 10 "https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code")
+[ -z "$J" ] && exit 0
+
+T=$(printf '%s' "$J" | jq -r '.current.temperature_2m')
+H=$(printf '%s' "$J" | jq -r '.current.relative_humidity_2m')
+W=$(printf '%s' "$J" | jq -r '.current.wind_speed_10m')
+C=$(printf '%s' "$J" | jq -r '.current.weather_code')
+[ "$T" = "null" ] && exit 0
+
+# Коды WMO — то, чем Open-Meteo заменяет словесное описание.
+case "$C" in
+    0)     D="Ясно" ;;
+    1)     D="Малооблачно" ;;
+    2)     D="Переменная облачность" ;;
+    3)     D="Пасмурно" ;;
+    45|48) D="Туман" ;;
+    51|53|55) D="Морось" ;;
+    56|57) D="Ледяная морось" ;;
+    61|63|65) D="Дождь" ;;
+    66|67) D="Ледяной дождь" ;;
+    71|73|75) D="Снег" ;;
+    77)    D="Снежная крупа" ;;
+    80|81|82) D="Ливень" ;;
+    85|86) D="Снегопад" ;;
+    95)    D="Гроза" ;;
+    96|99) D="Гроза с градом" ;;
+    *)     D="" ;;
+esac
+
+LC_ALL=C printf '%+.0f°C  %s\n' "$T" "$D"
+LC_ALL=C printf 'Ветер %.0f km/h  Влажность %s%%\n' "$W" "$H"
 WEOF
     sed -i "s|@CITY@|$city|" "$path"
     chmod +x "$path"
@@ -5270,7 +5323,7 @@ net|Сеть: v ${downspeedf wlp0s20f3}  ^ ${upspeedf wlp0s20f3}|скорост�
 uptime|Аптайм: ${uptime_short}|время работы с включения
 load|LA: ${loadavg}|средняя нагрузка
 temp|Температура: ${acpitemp}C|температура по ACPI
-weather|${color1}ПОГОДА${color}\n${execi 900 ~/bin/weather-line}|погода из wttr.in, обновление раз в 15 минут
+weather|${color1}ПОГОДА${color}\n${execi 900 ~/bin/weather-line}|погода из Open-Meteo, обновление раз в 15 минут
 EOF
 }
 
@@ -5332,10 +5385,41 @@ widget_add_module() {
 # на шаге виджета: «конфига conky нет» — и человек оставался без
 # половины вида, хотя команда для неё есть.
 widget_init() {
-    if [ -f "$CONKY_CONF" ]; then
+    # --rebuild нужен потому, что текст виджета пишется ровно один раз.
+    # Пока его не было, любая правка шаблона — новый блок, другой источник
+    # погоды, другие единицы скорости — до уже настроенных машин не
+    # доходила вовсе: --init видел готовый конфиг и молча отступал.
+    # Оформление (цвет, плотность, радиус) при пересборке не теряется:
+    # оно читается из старого конфига и накладывается заново.
+    local force="${1:-}"
+    if [ -f "$CONKY_CONF" ] && [ "$force" != "force" ]; then
         note "виджет уже настроен: $CONKY_CONF"
+        note "пересобрать по свежему шаблону: $0 widget --rebuild"
         note "поменять вид: $0 widget --radius 12 --colour 1e1e2e"
         return 0
+    fi
+
+    local keep_colour keep_ink keep_alpha keep_radius keep_modules=""
+    if [ -f "$CONKY_CONF" ]; then
+        keep_colour=$(conf_value own_window_colour "$CONKY_CONF")
+        keep_ink=$(conf_value default_color "$CONKY_CONF")
+        keep_alpha=$(state_get CONKY_ALPHA)
+        keep_radius=$(sed -n 's/^local RADIUS = \([0-9]*\).*/\1/p' \
+            "$CONKY_DIR/desktop-kit-bg.lua" 2>/dev/null | head -1)
+        # Добавленные блоки (погода и прочие) в базовый шаблон не входят:
+        # пересборка их попросту стёрла бы, и виджет молча похудел бы на
+        # раздел. Запоминаем, что стояло, и возвращаем после записи.
+        local m_name m_text
+        while IFS='|' read -r m_name m_text _; do
+            [ -z "$m_name" ] && continue
+            if grep -qF -- "$(printf '%b' "$m_text" | head -1)" "$CONKY_CONF" 2>/dev/null; then
+                keep_modules="$keep_modules $m_name"
+            fi
+        done <<EOF
+$(widget_modules_table)
+EOF
+        cp -f "$CONKY_CONF" "$CONKY_CONF.before-rebuild" 2>/dev/null
+        note "прежний конфиг сохранён: $CONKY_CONF.before-rebuild"
     fi
 
     head1 "создание виджета"
@@ -5384,8 +5468,8 @@ ${color1}СИСТЕМА${color}
 Диск${goto 130}${fs_used_perc /}%${alignr}${fs_bar 6,110 /}
 
 ${color1}СЕТЬ${color}
-${if_up @NETIF@}Приём${goto 130}${downspeed @NETIF@}
-Передача${goto 130}${upspeed @NETIF@}
+${if_up @NETIF@}Приём${goto 130}${if_match ${downspeedf @NETIF@}>1024.0}${downspeed @NETIF@}${else}${downspeedf @NETIF@}KiB${endif}
+Передача${goto 130}${if_match ${upspeedf @NETIF@}>1024.0}${upspeed @NETIF@}${else}${upspeedf @NETIF@}KiB${endif}
 ${endif}${if_up tun0}${color2}VPN активен${color}${endif}
 ]]
 CONKYEOF
@@ -5408,6 +5492,20 @@ X-GNOME-Autostart-Delay=5
 AUTOEOF
     ok "автозапуск прописан"
 
+    # Пересборка не должна менять вид: возвращаем цвет, текст и плотность,
+    # снятые со старого конфига. Иначе обновление шаблона выглядело бы как
+    # «сбросило оформление», и человек справедливо не стал бы его делать.
+    if [ -n "${keep_colour:-}" ] || [ -n "${keep_alpha:-}" ]; then
+        cmd_widget --colour "${keep_colour:-1e1e2e}" --text "${keep_ink:-ffffff}" \
+            --opacity "${keep_alpha:-225}" --radius "${keep_radius:-12}" >/dev/null 2>&1
+        ok "оформление сохранено: #${keep_colour:-1e1e2e}, радиус ${keep_radius:-12}px, плотность ${keep_alpha:-225}"
+    fi
+
+    local m
+    for m in ${keep_modules:-}; do
+        widget_add_module "$m" >/dev/null 2>&1 && ok "блок возвращён: $m"
+    done
+
     restart_conky
     note "добавить погоду: $0 widget --add weather"
     note "свой город:      $0 widget --city Санкт-Петербург"
@@ -5421,6 +5519,10 @@ cmd_widget() {
     fi
     if [ "${1:-}" = "--init" ]; then
         widget_init
+        return $?
+    fi
+    if [ "${1:-}" = "--rebuild" ]; then
+        widget_init force
         return $?
     fi
     if [ "${1:-}" = "--city" ]; then
@@ -8443,8 +8545,8 @@ panel_float_style() {
     remember DTP_TBMARGIN "$(dconf read $DTP/panel-top-bottom-margins 2>/dev/null)"
     remember DTP_SIDEMARGIN "$(dconf read $DTP/panel-side-margins 2>/dev/null)"
     remember DTP_RADIUS "$(dconf read $DTP/global-border-radius 2>/dev/null)"
-    dconf write $DTP/panel-top-bottom-margins 12 2>/dev/null
-    dconf write $DTP/panel-side-margins 10 2>/dev/null
+    dconf write $DTP/panel-top-bottom-margins 8 2>/dev/null
+    dconf write $DTP/panel-side-margins 6 2>/dev/null
     dconf write $DTP/global-border-radius 4 2>/dev/null
     dconf write $DTP/trans-gradient-top-opacity 0.0 2>/dev/null
     dconf write $DTP/trans-gradient-bottom-opacity 0.0 2>/dev/null
@@ -10542,7 +10644,7 @@ st_panel() {
     sandbox_run panel --float
     t_eq "длина панели записана в пустой JSON" '{"0":60}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-lengths)"
     t_eq "панель встала по центру" '{"0":"MIDDLE"}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-anchors)"
-    t_eq "плавающая панель поднята отступом" "12"         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-top-bottom-margins)"
+    t_eq "плавающая панель поднята отступом" "8"         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-top-bottom-margins)"
     # Радиус хранится шагами по 4 px: 4 — это 16 px на экране. Записать
     # сюда 16 значило бы попросить у расширения несуществующий стиль.
     t_eq "скругление записано шагом, а не пикселями" "4"         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/global-border-radius)"

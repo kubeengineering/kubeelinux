@@ -1,6 +1,6 @@
 # Карта desktop-kit.sh
 
-Всего 11643 строк, 481 КБ, примерно 164 тыс. токенов целиком.
+Всего 11745 строк, 487 КБ, примерно 166 тыс. токенов целиком.
 
 **Не читай файл целиком.** Найди место здесь или через `grep -n`, потом
 `Read` с `offset`/`limit` на 40–80 строк и `Edit` по найденному фрагменту.
@@ -23,24 +23,24 @@
 | Проверка темы на совместимость с кнопками | `themes_check` — строка 3981 |
 | Тема значков и цвет папок | `cmd_icons` — строка 4961 |
 | Шрифты интерфейса | `cmd_font` — строка 5101 |
-| Виджет conky: подложка, цвет, плотность | `cmd_widget` — строка 5417 |
-| Прозрачность и палитра терминала | `cmd_terminal` — строка 5703 |
-| Страница новой вкладки Chrome | `cmd_newtab` — строка 5911, разметка в heredoc ниже по функции |
-| Плитки без python3 | `newtab_tiles_plain` — строка 5845 |
-| Смена обоев по порядку | `cmd_wall` — строка 6928 |
-| Докачка обоев и расписание | `cmd_wallpapers` — строка 6586 |
-| Чистка банка обоев | `prune_wallpapers` — строка 6859 |
-| Горячие клавиши | `cmd_keys` — строка 8360 |
-| Панель Dash to Panel | `cmd_panel` — строка 8496 |
-| Своя тема для приложения | `cmd_app` — строка 7347 |
-| Прозрачность окна приложения | `app_opacity` — строка 7247, рядом opacity_install_watch — сторож |
+| Виджет conky: подложка, цвет, плотность | `cmd_widget` — строка 5515 |
+| Прозрачность и палитра терминала | `cmd_terminal` — строка 5805 |
+| Страница новой вкладки Chrome | `cmd_newtab` — строка 6013, разметка в heredoc ниже по функции |
+| Плитки без python3 | `newtab_tiles_plain` — строка 5947 |
+| Смена обоев по порядку | `cmd_wall` — строка 7030 |
+| Докачка обоев и расписание | `cmd_wallpapers` — строка 6688 |
+| Чистка банка обоев | `prune_wallpapers` — строка 6961 |
+| Горячие клавиши | `cmd_keys` — строка 8462 |
+| Панель Dash to Panel | `cmd_panel` — строка 8598 |
+| Своя тема для приложения | `cmd_app` — строка 7449 |
+| Прозрачность окна приложения | `app_opacity` — строка 7349, рядом opacity_install_watch — сторож |
 | Настройки VSCodium, подсветка .txt | `cmd_codium` — строка 811, вставка блока — codium_settings_write |
-| Локальная апка по http | `cmd_serve` — строка 7510 |
-| Откат: общая логика | `cmd_revert` — строка 7943 |
-| Откат конкретных ключей GNOME | `revert_gi_keys` — строка 7927 |
-| Что показывает status | `cmd_status` — строка 7623 |
-| Полный перечень изменяемого | `help_settings` — строка 11440 |
-| Общий текст справки | `usage` — строка 11377 |
+| Локальная апка по http | `cmd_serve` — строка 7612 |
+| Откат: общая логика | `cmd_revert` — строка 8045 |
+| Откат конкретных ключей GNOME | `revert_gi_keys` — строка 8029 |
+| Что показывает status | `cmd_status` — строка 7725 |
+| Полный перечень изменяемого | `help_settings` — строка 11542 |
+| Общий текст справки | `usage` — строка 11479 |
 | Диспетчер команд (добавить новую) | ищи `случай) cmd_` в самом конце файла: `grep -n 'cmd_status "$@"' desktop-kit.sh` |
 | Правила предшественника look.sh | `strip_legacy_css` — строка 2382 |
 | Резервные копии и откат файлов | `backup_once` 2179, `restore_backup` 2209 |
@@ -87,32 +87,32 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
 
 | Команда | Реализация | Справка | Тесты |
 |---|---|---|---|
-| `buttons` | 2763 | 2580 | 9766 |
-| `corners` | 3614 | 3171 | 9911 |
-| `theme` | 4461 | 3689 | 9938 |
-| `themes` | 3854 | 3785 | 10685 |
-| `icons` | 4961 | 4899 | 10112 |
-| `font` | 5101 | 5088 | 10185 |
-| `widget` | 5417 | 5185 | 10217 |
-| `terminal` | 5703 | 5676 | 10297 |
-| `newtab` | 5911 | 5867 | 10326 |
-| `wallpapers` | 6586 | 6280 | 10410 |
-| `wall` | 6928 | 6903 | 10376 |
-| `serve` | 7510 | 7490 | 10607 |
-| `app` | 7347 | 7032 | 10575 |
-| `keys` | 8360 | 8172 | 10473 |
-| `panel` | 8496 | 8398 | 10517 |
-| `audit` | 8618 | — | — |
-| `status` | 7623 | — | — |
-| `selftest` | 9224 | 8634 | — |
-| `revert` | 7943 | 7718 | 10628 |
+| `buttons` | 2763 | 2580 | 9868 |
+| `corners` | 3614 | 3171 | 10013 |
+| `theme` | 4461 | 3689 | 10040 |
+| `themes` | 3854 | 3785 | 10787 |
+| `icons` | 4961 | 4899 | 10214 |
+| `font` | 5101 | 5088 | 10287 |
+| `widget` | 5515 | 5185 | 10319 |
+| `terminal` | 5805 | 5778 | 10399 |
+| `newtab` | 6013 | 5969 | 10428 |
+| `wallpapers` | 6688 | 6382 | 10512 |
+| `wall` | 7030 | 7005 | 10478 |
+| `serve` | 7612 | 7592 | 10709 |
+| `app` | 7449 | 7134 | 10677 |
+| `keys` | 8462 | 8274 | 10575 |
+| `panel` | 8598 | 8500 | 10619 |
+| `audit` | 8720 | — | — |
+| `status` | 7725 | — | — |
+| `selftest` | 9326 | 8736 | — |
+| `revert` | 8045 | 7820 | 10730 |
 
 ## Секции файла
 
 
 ## Пути и константы
 
-    38  VERSION="1.13"
+    38  VERSION="1.14"
     42  VERSION_DATE="14.09.2026"
     43  SELF=$(readlink -f "$0")
     64  STATE_DIR="$HOME/.local/state/desktop-kit"
@@ -216,8 +216,8 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
 ## Самопроверка
 
     группы:      core buttons corners theme icons font widget terminal newtab wall wallpapers keys panel app serve revert themes look profile tabby codium refresh tune report presets overview help
-    каркас:      sandbox_new 8700, sandbox_run 8958
-    утверждения: t_eq 9033, t_has 9060, t_out_has 9110, t_rc 9124
+    каркас:      sandbox_new 8802, sandbox_run 9060
+    утверждения: t_eq 9135, t_has 9162, t_out_has 9212, t_rc 9226
     заглушки:    14 штук, ищи sb_write_stub
 
 Запуск одной группы: `bash desktop-kit.sh selftest --only theme`
@@ -381,126 +381,126 @@ bash tools/check.sh "ГРУППА [ГРУППА]"
       5088 help_font
       5101 cmd_font
       5185 help_widget
-      5222 weather_line_path
-      5226 weather_line_install
-      5264 widget_modules_table
-      5277 widget_add_module
-      5334 widget_init
-      5417 cmd_widget
-      5643 conf_value
-      5660 hex_brightness
-      5676 help_terminal
-      5694 term_profile
-      5703 cmd_terminal
-      5814 apply_wal_palette
-      5845 newtab_tiles_plain
-      5867 help_newtab
-      5889 overview_newtab
-      5911 cmd_newtab
-      6007 rebuild_newtab
-      6218 tick
-      6235 find_wallpaper_dir
-      6250 current_wallpaper
-      6268 detect_resolution
-      6280 help_wallpapers
-      6314 week_themes
-      6323 wallpaper_urls
-      6360 wall_url_of
-      6375 walls_manifest_dest
-      6412 walls_publish
-      6454 walls_export
-      6517 walls_sync
-      6586 cmd_wallpapers
-      6791 install_wallpaper_timer
-      6859 prune_wallpapers
-      6903 help_wall
-      6928 cmd_wall
-      7032 help_app
-      7090 opacity_to_hex
-      7096 opacity_windows_of
-      7102 opacity_apply_now
-      7119 opacity_install_watch
-      7175 opacity_remove_watch
-      7187 app_windows
-      7247 app_opacity
-      7347 cmd_app
-      7490 help_serve
-      7510 cmd_serve
-      7623 cmd_status
-      7718 help_revert
-      7754 revert_terminal
-      7792 revert_panel
-      7836 revert_app
-      7870 revert_keys
-      7906 revert_serve
-      7927 revert_gi_keys
-      7943 cmd_revert
-      8172 help_keys
-      8198 keys_list_paths
-      8203 keys_show
-      8227 keys_add
-      8313 keys_remove
-      8360 cmd_keys
-      8398 help_panel
-      8442 panel_float_style
-      8463 panel_json_set
-      8496 cmd_panel
-      8618 cmd_audit
-      8634 help_selftest
-      8693 sb_write_stub
-      8700 sandbox_new
-      8931 sb_set
-      8942 sb_get
-      8950 sb_dconf
-      8958 sandbox_run
-      8984 sandbox_verify
-      9008 sandbox_run_no
-      9016 sandbox_drop
-      9033 t_eq
-      9047 t_ne
-      9060 t_has
-      9080 t_hasnt
-      9098 t_hasnt_out
-      9110 t_out_has
-      9124 t_rc
-      9138 t_rc_not
-      9164 t_file
-      9176 t_nofile
-      9195 t_group
-      9204 t_ok
-      9206 t_fail
-      9211 t_skip
-      9216 t_detail
-      9224 cmd_selftest
-      9610 selftest_full
-      9653 st_core
-      9766 st_buttons
-      9911 st_corners
-      9938 st_theme
-      10112 st_icons
-      10185 st_font
-      10217 st_widget
-      10297 st_terminal
-      10326 st_newtab
-      10376 st_wall
-      10410 st_wallpapers
-      10473 st_keys
-      10517 st_panel
-      10575 st_app
-      10607 st_serve
-      10628 st_revert
-      10685 st_themes
-      10727 st_look
-      10803 st_tabby
-      10855 codium_tail_of
-      10860 st_codium
-      10986 st_profile
-      11061 st_refresh
-      11109 st_tune
-      11190 st_report
-      11244 st_overview
-      11281 st_presets
-      11318 st_help
-      11377 usage
-      11440 help_settings
-      11513 cmd_help
+      5225 weather_line_path
+      5229 weather_line_install
+      5317 widget_modules_table
+      5330 widget_add_module
+      5387 widget_init
+      5515 cmd_widget
+      5745 conf_value
+      5762 hex_brightness
+      5778 help_terminal
+      5796 term_profile
+      5805 cmd_terminal
+      5916 apply_wal_palette
+      5947 newtab_tiles_plain
+      5969 help_newtab
+      5991 overview_newtab
+      6013 cmd_newtab
+      6109 rebuild_newtab
+      6320 tick
+      6337 find_wallpaper_dir
+      6352 current_wallpaper
+      6370 detect_resolution
+      6382 help_wallpapers
+      6416 week_themes
+      6425 wallpaper_urls
+      6462 wall_url_of
+      6477 walls_manifest_dest
+      6514 walls_publish
+      6556 walls_export
+      6619 walls_sync
+      6688 cmd_wallpapers
+      6893 install_wallpaper_timer
+      6961 prune_wallpapers
+      7005 help_wall
+      7030 cmd_wall
+      7134 help_app
+      7192 opacity_to_hex
+      7198 opacity_windows_of
+      7204 opacity_apply_now
+      7221 opacity_install_watch
+      7277 opacity_remove_watch
+      7289 app_windows
+      7349 app_opacity
+      7449 cmd_app
+      7592 help_serve
+      7612 cmd_serve
+      7725 cmd_status
+      7820 help_revert
+      7856 revert_terminal
+      7894 revert_panel
+      7938 revert_app
+      7972 revert_keys
+      8008 revert_serve
+      8029 revert_gi_keys
+      8045 cmd_revert
+      8274 help_keys
+      8300 keys_list_paths
+      8305 keys_show
+      8329 keys_add
+      8415 keys_remove
+      8462 cmd_keys
+      8500 help_panel
+      8544 panel_float_style
+      8565 panel_json_set
+      8598 cmd_panel
+      8720 cmd_audit
+      8736 help_selftest
+      8795 sb_write_stub
+      8802 sandbox_new
+      9033 sb_set
+      9044 sb_get
+      9052 sb_dconf
+      9060 sandbox_run
+      9086 sandbox_verify
+      9110 sandbox_run_no
+      9118 sandbox_drop
+      9135 t_eq
+      9149 t_ne
+      9162 t_has
+      9182 t_hasnt
+      9200 t_hasnt_out
+      9212 t_out_has
+      9226 t_rc
+      9240 t_rc_not
+      9266 t_file
+      9278 t_nofile
+      9297 t_group
+      9306 t_ok
+      9308 t_fail
+      9313 t_skip
+      9318 t_detail
+      9326 cmd_selftest
+      9712 selftest_full
+      9755 st_core
+      9868 st_buttons
+      10013 st_corners
+      10040 st_theme
+      10214 st_icons
+      10287 st_font
+      10319 st_widget
+      10399 st_terminal
+      10428 st_newtab
+      10478 st_wall
+      10512 st_wallpapers
+      10575 st_keys
+      10619 st_panel
+      10677 st_app
+      10709 st_serve
+      10730 st_revert
+      10787 st_themes
+      10829 st_look
+      10905 st_tabby
+      10957 codium_tail_of
+      10962 st_codium
+      11088 st_profile
+      11163 st_refresh
+      11211 st_tune
+      11292 st_report
+      11346 st_overview
+      11383 st_presets
+      11420 st_help
+      11479 usage
+      11542 help_settings
+      11615 cmd_help
