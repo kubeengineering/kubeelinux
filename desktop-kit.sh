@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.16"
+VERSION="1.17"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -6452,9 +6452,15 @@ EOF
 }
 
 week_themes() {
+    # Две группы тем, и это осознанно. Природа и пейзажи дают спокойный
+    # фон, компьютерно-рисованное — картинки «про наше»: пиксель-арт,
+    # изометрия, ретровейв. Вторая группа добавлена 14.09.2026 по просьбе
+    # владельца; проверено по выдаче wallhaven, что у каждой темы есть
+    # чем наполнять (сотни работ, а не единицы).
     local all="digital+art artwork illustration scenery landscape fantasy space \
 mountains forest sunset ocean neon city abstract minimal aurora clouds \
-mist canyon lake nordic"
+mist canyon lake nordic \
+pixel+art retrowave vaporwave synthwave lowpoly isometric programming circuit"
     local seed=$(date +%V)
     echo "$all" | tr ' ' '\n' | grep -v '^$' \
         | shuf --random-source=<(yes "$seed") | head -6 | tr '\n' ' '
