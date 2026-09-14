@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.12"
+VERSION="1.13"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -971,6 +971,7 @@ look_table() {
 work|тёмный рабочий стол: стеклянная панель, виджет справа, прозрачный терминал|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons default|corners --radius 12|panel --float --opacity 10 --size 46|widget --init|widget --colour 1e1e2e --text ffffff --radius 12 --opacity 225|terminal --opacity 12
 night|то же, но темнее и строже: острые углы, глухая подложка|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons thin|corners --radius 0|panel --float --opacity 35 --size 42|widget --init|widget --colour 11111b --text cdd6f4 --radius 0 --opacity 255|terminal --opacity 6
 paper|светлый день: мягкие углы, светлый виджет, непрозрачный терминал|theme Graphite-Light --gtk4|icons Papirus-Light|buttons default|corners --radius 10|panel --float --opacity 12 --size 44|widget --init|widget --colour f2f2f2 --text 1e1e2e --radius 12 --opacity 235|terminal --opacity 0
+sage|рабочий эталон владельца: светлая Yaru-sage, крупные квадратные кнопки, прямые углы, панель насквозь|theme Yaru-sage --light|icons Papirus-Dark-dk-glyphs|font "Cantarell 11"|font --mono "JetBrainsMono Nerd Font 11"|buttons --size 46 34 --icon 20 --gtk3-scale 1.0 --radius 0 --close #e81123|corners --radius 0|panel --opacity 0 --size 51|widget --init|widget --colour 1e1e2e --text ffffff --radius 0 --opacity 225|terminal --opacity 15|codium --all
 EOF
 }
 
@@ -5611,15 +5612,34 @@ LUAEOF
 # Значение ключа из конфига conky. Через sed, а не grep -P: у grep
 # перловые выражения отваливаются в не-UTF-8 локали ("-P supports only
 # unibyte and UTF-8 locales"), а таймер systemd запускается с C.
+# Значение ключа из конфига conky.
+#
+# Резать строку по первому '=' нельзя: conky пишет по нескольку ключей в
+# строку, и наш собственный шаблон — тоже. Для строки
+#
+#     own_window_argb_value = 0, own_window_colour = '1e1e2e',
+#
+# прежняя реализация возвращала «0own_window_colour» и на цвете рассыпалась:
+# widget без --colour читал этот мусор и писал в конфиг сломанную подложку.
+# Поймано на живой машине 14.09.2026.
+#
+# Поэтому ищем именно нужный ключ (с проверкой границы слова, чтобы
+# default_color не поймал default_outline_color) и берём значение до
+# запятой или конца.
 conf_value() {
     local key="$1"
     local file="$2"
     if [ ! -f "$file" ]; then
         return 0
     fi
-    grep -m1 -- "$key" "$file" \
-        | tr -d " ',"  \
-        | cut -d= -f2
+    awk -v k="$key" '
+        match($0, "(^|[^A-Za-z0-9_])" k "[ \t]*=[ \t]*") {
+            v = substr($0, RSTART + RLENGTH)
+            sub(/[,}].*$/, "", v)
+            gsub(/[ \047"]/, "", v)
+            if (v != "") { print v; exit }
+        }
+    ' "$file"
 }
 
 # Яркость по восприятию: зелёный весит больше синего.
@@ -10191,6 +10211,15 @@ st_widget() {
     # повторный запуск не должен плодить строки
     sandbox_run widget --radius 10
     t_eq "lua_load не задвоился" "1" "$(grep -c 'lua_load' "$conf")"
+
+    # Чтение ключа из строки, где их несколько. Раньше conf_value резал
+    # строку по первому '=' и на own_window_colour возвращал кусок
+    # соседнего ключа; widget без --colour писал этим мусором подложку.
+    local multi="$SB/multi.conf"
+    printf "    own_window_argb_value = 225, own_window_colour = '1e1e2e',\n    default_color = 'ffffff', default_outline_color = 'aaaaaa',\n" > "$multi"
+    t_eq "цвет читается из строки с несколькими ключами" "1e1e2e"         "$(conf_value own_window_colour "$multi")"
+    t_eq "плотность читается из той же строки" "225"         "$(conf_value own_window_argb_value "$multi")"
+    t_eq "default_color не путается с default_outline_color" "ffffff"         "$(conf_value default_color "$multi")"
     t_eq "хук отрисовки не задвоился" "1" "$(grep -c 'lua_draw_hook_pre' "$conf")"
     t_has "новый радиус применился" "$lua" "local RADIUS = 10"
 
@@ -11350,9 +11379,10 @@ desktop-kit $VERSION — настройка десктопа Ubuntu 24.04 / GNOM
   widget       виджет conky: скругление, цвет, плотность
                  $(presets_names widget)
   terminal     GNOME Terminal: прозрачность, шрифт, палитра
-  tabby        стеклянный Tabby: плотность фона терминала
-  codium       редактор VSCodium: .txt как текст, открытие по двойному клику
                  $(presets_names terminal)
+  tabby        стеклянный Tabby: плотность фона терминала
+                 $(presets_names tabby)
+  codium       редактор VSCodium: .txt как текст, открытие по двойному клику
 
   Слово после команды — готовый набор параметров: buttons thin,
   corners sharp. Флаги после него перекрывают: buttons thin --icon 24.
