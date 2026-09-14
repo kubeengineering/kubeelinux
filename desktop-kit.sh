@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.14"
+VERSION="1.15"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -484,8 +484,23 @@ cmd_tabby() {
         ' "$TABBY_CONF" > "$tmp"
         mv "$tmp" "$TABBY_CONF"
         ok "блок обновлён в appearance.css"
+    elif grep -qE '^appearance:[[:space:]]*$' "$TABBY_CONF"; then
+        # Раздел appearance уже есть, но без css — дописываем ключ внутрь
+        # него. Второй такой же раздел в конец файла добавлять НЕЛЬЗЯ:
+        # YAML-разбор в Tabby падает на дубликате ключа, и терминал
+        # перестаёт запускаться совсем — окно не появляется, процесс
+        # умирает молча. Поймано на живой машине 14.09.2026: Tabby сам
+        # завёл appearance: с vibrancy, когда включали Acrylic.
+        local tmp2
+        tmp2=$(mktemp)
+        awk -v block="$(tabby_css_block "$alpha" "$ui" "$rgb")" '
+            /^appearance:[[:space:]]*$/ && !done { print; print "  css: |"; print block; done = 1; next }
+            { print }
+        ' "$TABBY_CONF" > "$tmp2"
+        mv "$tmp2" "$TABBY_CONF"
+        ok "css добавлен в существующую секцию appearance"
     else
-        # Ключа css нет — добавляем секцию целиком в конец файла
+        # Секции appearance нет вовсе — добавляем её целиком в конец файла
         {
             printf '\nappearance:\n  css: |\n'
             tabby_css_block "$alpha" "$ui" "$rgb"
@@ -10948,6 +10963,22 @@ terminal:
 
     sandbox_run tabby --alpha 5
     t_rc_not "вздорная плотность отвергнута"
+
+    # Секция appearance уже есть, но css в ней нет — так выглядит конфиг
+    # сразу после включения Acrylic в самом Tabby. Раньше скрипт дописывал
+    # ВТОРУЮ секцию appearance в конец файла, YAML-разбор в Tabby падал на
+    # дубликате ключа, и терминал переставал запускаться вовсе.
+    printf 'version: 5
+appearance:
+  vibrancy: true
+terminal:
+  fontSize: 13
+' > "$conf"
+    sandbox_run tabby --alpha 0.30
+    t_eq "секция appearance не задвоилась" "1"         "$(grep -c '^appearance:' "$conf")"
+    t_has "css попал внутрь неё" "$conf" "dk:tabby-begin"
+    t_has "vibrancy уцелел" "$conf" "vibrancy: true"
+
 
     sandbox_drop
 }
