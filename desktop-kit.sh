@@ -35,7 +35,7 @@
 
 set -uo pipefail
 
-VERSION="1.15"
+VERSION="1.16"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
@@ -5483,8 +5483,8 @@ ${color1}СИСТЕМА${color}
 Диск${goto 130}${fs_used_perc /}%${alignr}${fs_bar 6,110 /}
 
 ${color1}СЕТЬ${color}
-${if_up @NETIF@}Приём${goto 130}${if_match ${downspeedf @NETIF@}>1024.0}${downspeed @NETIF@}${else}${downspeedf @NETIF@}KiB${endif}
-Передача${goto 130}${if_match ${upspeedf @NETIF@}>1024.0}${upspeed @NETIF@}${else}${upspeedf @NETIF@}KiB${endif}
+${if_up @NETIF@}Приём${goto 130}${lua netdown @NETIF@}
+Передача${goto 130}${lua netup @NETIF@}
 ${endif}${if_up tun0}${color2}VPN активен${color}${endif}
 ]]
 CONKYEOF
@@ -5653,6 +5653,29 @@ require 'cairo'
 
 local RADIUS = $radius
 local R, G, B, A = $r, $g, $b, $a
+
+-- Скорость сети: число, пробел, единица.
+--
+-- Своими \${downspeed}/\${upspeed} conky печатает единицу вплотную к
+-- числу («0.45KiB») и на простое падает в байты, а формата у него не
+-- настроить. Поэтому считаем сами из \${downspeedf}, который всегда
+-- отдаёт килобайты, и переходим на мегабайты только под нагрузкой.
+local function dk_speed(raw)
+    -- В локалях с запятой в дробях tonumber вернул бы nil.
+    local v = tonumber((tostring(raw):gsub(',', '.'))) or 0
+    if v >= 1024 then
+        return string.format('%.1f MiB', v / 1024)
+    end
+    return string.format('%.1f KiB', v)
+end
+
+function conky_netdown(iface)
+    return dk_speed(conky_parse('\${downspeedf ' .. iface .. '}'))
+end
+
+function conky_netup(iface)
+    return dk_speed(conky_parse('\${upspeedf ' .. iface .. '}'))
+end
 
 function conky_draw_bg()
     if conky_window == nil then
