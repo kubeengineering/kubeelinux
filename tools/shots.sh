@@ -56,7 +56,18 @@ shot() {
 # картинку: на ней часы идут, а всё остальное — из прошлого. Полтора
 # часа ушло на «почему ключ не применился», пока не выяснилось, что
 # применился, просто кадр был старый. xrefresh просит перерисовать всё.
+#
+# xrefresh просит перерисовать всё — но только клиентов X11. Собственные
+# поверхности оболочки (панель, закрытые окна GTK4) он не трогает, и
+# закрытое окно продолжает висеть в кадре уже после смерти процесса:
+# 14.09.2026 диалог «доступны обновления» так и снимался трижды подряд,
+# хотя update-manager был давно убит. Открытый и закрытый обзор заставляет
+# mutter перерисовать экран целиком — это и убирает призраков.
 redraw() {
+    $SSH "$HOST" "$GUI xdotool key super" >/dev/null 2>&1
+    sleep 2
+    $SSH "$HOST" "$GUI xdotool key Escape" >/dev/null 2>&1
+    sleep 1
     $SSH "$HOST" "$GUI xrefresh -root" >/dev/null 2>&1
     sleep 2
 }
@@ -117,8 +128,14 @@ scene() {
             sleep 6
             ;;
         clean)
+            # Браузер и «доступны обновления» закрываем тоже: первый
+            # остаётся открытым от сцены chrome, второй всплывает поверх
+            # всего через несколько минут после входа, даже когда служба
+            # остановлена — окно-то уже создано.
             $SSH "$HOST" "$GUI pkill nautilus 2>/dev/null; \
-                pkill -f gnome-terminal-server 2>/dev/null; sleep 2" >/dev/null 2>&1
+                pkill -f gnome-terminal-server 2>/dev/null; \
+                pkill -x chrome 2>/dev/null; \
+                pkill -f 'bin/update-manager' 2>/dev/null; sleep 2" >/dev/null 2>&1
             ;;
     esac
     esc
@@ -135,6 +152,10 @@ scene() {
 # unattended-upgrades,       поднимают load average до 25 на четырёх
 # update-notifier            ядрах, после чего ssh отваливается по
 #                            таймауту и съёмка встаёт
+# update-manager             всплывает окном «доступны обновления» ровно
+#                            по центру кадра через несколько минут после
+#                            входа; убить мало — вернётся, поэтому ещё и
+#                            прячем автозапуск на будущие сессии
 # conky update_interval      на программном рендеринге Cairo виджет
 #                            съедает 98% процессора; раз в пять секунд
 #                            он рисует то же самое, но машина жива
@@ -145,6 +166,10 @@ prepare() {
         sudo systemctl mask unattended-upgrades 2>/dev/null; \
         sudo sed -i 's/^enabled=1/enabled=0/' /etc/default/apport 2>/dev/null; \
         pkill -f update-notifier 2>/dev/null; pkill -f apport-gtk 2>/dev/null; \
+        pkill -f 'bin/update-manager' 2>/dev/null; \
+        mkdir -p ~/.config/autostart; \
+        printf '[Desktop Entry]\nType=Application\nHidden=true\n' \
+            > ~/.config/autostart/update-notifier.desktop; \
         sudo rm -f /var/crash/* 2>/dev/null; \
         sed -i 's/^[[:space:]]*update_interval[[:space:]]*=.*/    update_interval = 5,/' \
             ~/.config/conky/main.conf 2>/dev/null; true" >/dev/null 2>&1

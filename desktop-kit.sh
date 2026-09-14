@@ -35,11 +35,11 @@
 
 set -uo pipefail
 
-VERSION="1.11"
+VERSION="1.12"
 # Дату версии ведём руками рядом с номером: raw.githubusercontent.com
 # отдаёт только ETag, никакого Last-Modified, так что взять её из сети
 # неоткуда. Меняется вместе с VERSION при выпуске.
-VERSION_DATE="12.09.2026"
+VERSION_DATE="14.09.2026"
 SELF=$(readlink -f "$0")
 
 # --------------------------------------------------------------- пути
@@ -968,7 +968,7 @@ cmd_codium() {
 
 look_table() {
     cat <<'EOF'
-work|тёмный рабочий стол: стеклянная панель, виджет справа, прозрачный терминал|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons default|corners --radius 12|panel --float --opacity 15 --size 46|widget --init|widget --colour 1e1e2e --text ffffff --radius 12 --opacity 225|terminal --opacity 12
+work|тёмный рабочий стол: стеклянная панель, виджет справа, прозрачный терминал|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons default|corners --radius 12|panel --float --opacity 10 --size 46|widget --init|widget --colour 1e1e2e --text ffffff --radius 12 --opacity 225|terminal --opacity 12
 night|то же, но темнее и строже: острые углы, глухая подложка|theme Graphite-Dark --gtk4|icons Papirus-Dark|buttons thin|corners --radius 0|panel --float --opacity 35 --size 42|widget --init|widget --colour 11111b --text cdd6f4 --radius 0 --opacity 255|terminal --opacity 6
 paper|светлый день: мягкие углы, светлый виджет, непрозрачный терминал|theme Graphite-Light --gtk4|icons Papirus-Light|buttons default|corners --radius 10|panel --float --opacity 12 --size 44|widget --init|widget --colour f2f2f2 --text 1e1e2e --radius 12 --opacity 235|terminal --opacity 0
 EOF
@@ -7780,6 +7780,15 @@ revert_panel() {
         dconf write $DTP/panel-anchors "'$dtp_a'" 2>/dev/null
         ok "привязка панели восстановлена"
     fi
+    # Отступы и скругление плавающей панели — возвращаем, если их
+    # поднимал --float.
+    local dtp_tb dtp_sm dtp_r
+    dtp_tb=$(recall DTP_TBMARGIN)
+    [ -n "$dtp_tb" ] && dconf write $DTP/panel-top-bottom-margins "$dtp_tb" 2>/dev/null
+    dtp_sm=$(recall DTP_SIDEMARGIN)
+    [ -n "$dtp_sm" ] && dconf write $DTP/panel-side-margins "$dtp_sm" 2>/dev/null
+    dtp_r=$(recall DTP_RADIUS)
+    [ -n "$dtp_r" ] && dconf write $DTP/global-border-radius "$dtp_r" 2>/dev/null
     return 0
 }
 
@@ -8355,7 +8364,7 @@ panel — панель задач Dash to Panel
   desktop-kit panel --size N           высота панели в пикселях
   desktop-kit panel --transparent      полностью прозрачная подложка
   desktop-kit panel --length N         длина панели, % ширины экрана
-  desktop-kit panel --float            стеклянная панель по центру (88%)
+  desktop-kit panel --float            парящая прозрачная панель по центру
   desktop-kit panel --full             вернуть во всю ширину
 
   Прозрачность в Dash to Panel задаётся ОДНА на все мониторы: отдельной
@@ -8368,6 +8377,42 @@ EOF
 }
 
 DTP="/org/gnome/shell/extensions/dash-to-panel"
+BMS_PANEL="/org/gnome/shell/extensions/blur-my-shell/panel"
+
+# Стеклянная плавающая панель: то, что делает её парящей скруглённой
+# пилюлей, а не прямоугольной планкой у края. Без этого прозрачность
+# сама по себе даёт либо прижатую к краю панель, либо — из-за блюра —
+# тёмную полосу за иконками. Собрано и проверено на стенде 14.09.2026,
+# каждая строка — отдельная причина, по которой панель выглядела не так:
+#
+#   * отступы (margins) — панель отходит от края и парит. Они же
+#     включают скругление: свои стили Dash to Panel вешает на класс
+#     .dashtopanelPanel.dock, а «доком» панель становится, только когда
+#     оторвана от края. С нулевым отступом радиус не даст ничего;
+#   * радиус — шаг по 4 пикселя, а не пиксели. В окне настроек ползунок
+#     подписан «16px», в dconf при этом лежит 4: расширение умножает
+#     значение на четыре и ищет свой класс br16. Записать туда 16
+#     означает попросить класс br64, которого в стилях нет, — настройка
+#     сохранится, а углы останутся прямыми;
+#   * градиенты в ноль — иначе снизу добавляется затемнение, и за
+#     системным лотком оно выглядит как отдельная чёрная плашка;
+#   * Blur My Shell гасим: его блюр панели включён по умолчанию и
+#     рисует тёмную подложку, которую прозрачность DtP не убирает —
+#     сколько ни ставь opacity, полоса остаётся.
+panel_float_style() {
+    remember DTP_TBMARGIN "$(dconf read $DTP/panel-top-bottom-margins 2>/dev/null)"
+    remember DTP_SIDEMARGIN "$(dconf read $DTP/panel-side-margins 2>/dev/null)"
+    remember DTP_RADIUS "$(dconf read $DTP/global-border-radius 2>/dev/null)"
+    dconf write $DTP/panel-top-bottom-margins 12 2>/dev/null
+    dconf write $DTP/panel-side-margins 10 2>/dev/null
+    dconf write $DTP/global-border-radius 4 2>/dev/null
+    dconf write $DTP/trans-gradient-top-opacity 0.0 2>/dev/null
+    dconf write $DTP/trans-gradient-bottom-opacity 0.0 2>/dev/null
+    # Blur My Shell может быть не установлен — тогда просто пропускаем.
+    if dconf list /org/gnome/shell/extensions/blur-my-shell/ >/dev/null 2>&1; then
+        dconf write $BMS_PANEL/blur false 2>/dev/null
+    fi
+}
 
 # Записать значение для монитора в JSON-настройку Dash to Panel.
 #
@@ -8385,7 +8430,23 @@ panel_json_set() {
             ;;
     esac
     if printf '%s' "$json" | grep -q ':'; then
-        printf '%s' "$json" | sed "s/:[^,}]*/:$value/g"
+        local out
+        out=$(printf '%s' "$json" | sed "s/:[^,}]*/:$value/g")
+        # Ключ "0" дописываем рядом с уже имеющимися — это запасной вход.
+        # Dash to Panel хранит такие настройки под идентификатором монитора
+        # вида «вендор-серийник» (на ноутбуке это, например, IVO-0x00000000),
+        # но берёт его у mutter, и если монитор вендора с серийником не
+        # сообщает — а виртуальные машины и часть матриц молчат — расширение
+        # в работе читает настройку по индексу монитора, то есть по "0".
+        # Своё же окно настроек пишет ключ по названию («unknown-unknown»),
+        # который при работе не читается вообще. Из-за этого значение честно
+        # лежит в dconf, gsettings его показывает, а панель не меняется —
+        # на это ушёл час на стенде 14.09.2026. Лишним ключ не будет:
+        # расширение смотрит на него, только не найдя именной.
+        case "$out" in
+            *'"0":'*) printf '%s' "$out" ;;
+            *)        printf '%s' "$out" | sed "s/}$/,\"0\":$value}/" ;;
+        esac
     else
         printf '{"0":%s}' "$value"
     fi
@@ -8397,6 +8458,7 @@ cmd_panel() {
     local size=""
     local length=""
     local anchor=""
+    local float=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -8404,7 +8466,7 @@ cmd_panel() {
             --size)        need_args "--size" 2 "$#"; size="$2"; shift 2 ;;
             --transparent) opacity=0; shift ;;
             --length)      need_args "--length" 2 "$#"; length="$2"; shift 2 ;;
-            --float)       length=88; anchor="MIDDLE"; shift ;;
+            --float)       length=60; anchor="MIDDLE"; float=1; shift ;;
             --full)        length=100; anchor="MIDDLE"; shift ;;
             -h|--help)     help_panel; return 0 ;;
             *) die "panel: неизвестный параметр $1" ;;
@@ -8424,7 +8486,7 @@ cmd_panel() {
         note "длина: $(dconf read $DTP/panel-lengths 2>/dev/null)"
         note "привязка: $(dconf read $DTP/panel-anchors 2>/dev/null)"
         blank
-        note "стеклянная панель по центру: $0 panel --float --opacity 15"
+        note "парящая прозрачная панель: $0 panel --float --opacity 10"
         note "во всю ширину обратно:      $0 panel --full"
         return 0
     fi
@@ -8475,6 +8537,17 @@ cmd_panel() {
             else
                 ok "панель занимает $length% ширины, остальное — обои"
             fi
+        fi
+    fi
+
+    # Плавающий стиль применяем последним: отступы, скругление, снятый
+    # блюр — то, без чего прозрачная панель либо лежит у края, либо тонет
+    # в тёмной подложке блюра.
+    if [ "$float" = "1" ] && ! would "поднять панель и сделать её парящей"; then
+        panel_float_style
+        ok "панель парит: отступы, скругление, блюр снят"
+        if [ -z "$opacity" ]; then
+            note "прозрачность оставил как есть — задать: $0 panel --float --opacity 10"
         fi
     fi
 
@@ -10418,11 +10491,23 @@ st_panel() {
     printf "/org/gnome/shell/extensions/dash-to-panel/panel-lengths '{}'
 "         >> "$SB_STORE/dconf"
     sandbox_run panel --float
-    t_eq "длина панели записана в пустой JSON" '{"0":88}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-lengths)"
+    t_eq "длина панели записана в пустой JSON" '{"0":60}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-lengths)"
     t_eq "панель встала по центру" '{"0":"MIDDLE"}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-anchors)"
+    t_eq "плавающая панель поднята отступом" "12"         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-top-bottom-margins)"
+    # Радиус хранится шагами по 4 px: 4 — это 16 px на экране. Записать
+    # сюда 16 значило бы попросить у расширения несуществующий стиль.
+    t_eq "скругление записано шагом, а не пикселями" "4"         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/global-border-radius)"
 
     sandbox_run panel --full
     t_eq "панель вернулась во всю ширину" '{"0":100}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-lengths)"
+
+    # Чужой ключ монитора. Окно настроек расширения пишет длину под именем
+    # вроде "unknown-unknown", а в работе расширение читает её по индексу —
+    # значение оказывалось в dconf, но панель не менялась. Индекс должен
+    # дописываться рядом, не затирая именной ключ.
+    printf "/org/gnome/shell/extensions/dash-to-panel/panel-lengths '{\"unknown-unknown\":100}'\n"         >> "$SB_STORE/dconf"
+    sandbox_run panel --float
+    t_eq "к чужому ключу монитора дописан индекс" '{"unknown-unknown":60,"0":60}'         "$(sb_dconf /org/gnome/shell/extensions/dash-to-panel/panel-lengths)"
 
     sandbox_run panel --length 5
     t_rc_not "слишком короткая панель отвергнута"
