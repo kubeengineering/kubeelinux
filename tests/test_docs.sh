@@ -71,6 +71,25 @@ else
     fail "нет файлов:$broken"
 fi
 
+printf '\n== на каждый документ есть ссылка из README\n'
+
+# Документ, на который неоткуда перейти, считай что его нет. Так и вышло
+# с docs/chrome.md: инструкция «как подключить свою новую вкладку к
+# Chrome» была написана подробно, но в README её не упомянули — и
+# владелец 15.09.2026 искал её там, где её не было, и не нашёл.
+lost=""
+for f in "$HERE"/docs/*.md; do
+    b=$(basename "$f")
+    [ "$b" = "README.md" ] && continue
+    grep -qF "docs/$b" "$HERE/README.md" || lost="$lost $b"
+done
+
+if [ -z "$lost" ]; then
+    ok "все документы упомянуты в README"
+else
+    fail "нет ссылки из README:$lost"
+fi
+
 printf '\n'
 if [ "$FAIL" = "0" ]; then
     printf 'все проверки прошли (%d)\n' "$OK"

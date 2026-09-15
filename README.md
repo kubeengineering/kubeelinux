@@ -141,6 +141,8 @@ design icons Nordzy-dark             # примерить
 | [commands.md](docs/commands.md) | подробно по каждой команде, профили, откат |
 | [keys.md](docs/keys.md) | **каждый ключ по отдельности** — что делает, как выглядит, где подвох |
 | [banks.md](docs/banks.md) | банки тем и значков, как устроена установка |
+| [chrome.md](docs/chrome.md) | своя страница новой вкладки: собрать, **подключить к Chrome**, ярлыки и обои |
+| [tabby.md](docs/tabby.md) | стеклянный терминал Tabby: что включить в нём самом |
 | [how-it-works.md](docs/how-it-works.md) | устройство: блоки в CSS, Wayland или Xorg, как допиливать |
 | [gtk-theming.md](docs/gtk-theming.md) | почему libadwaita игнорирует темы и что с этим делать |
 | [testing.md](docs/testing.md) | самопроверка, стенды, как гонять тесты |
@@ -148,6 +150,7 @@ design icons Nordzy-dark             # примерить
 | [known-issues.md](docs/known-issues.md) | известные ограничения |
 | [reference-machine.md](docs/reference-machine.md) | эталонная машина, с которой всё снято |
 | [thinkpad-x13-gen2.md](docs/thinkpad-x13-gen2.md) | чек-лист проверки б/у ноутбука |
+| [titlebar-buttons-investigation.md](docs/titlebar-buttons-investigation.md) | разбор: почему кнопки заголовка не слушались и что помогло |
 
 ---
 
